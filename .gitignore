@@ -1,0 +1,11 @@
+bower_components
+/target
+/.classpath
+/.settings
+/.project
+/bazel-bin
+/bazel-genfiles
+/bazel-gerrit
+/bazel-out
+/bazel-testlogs
+.DS_Store

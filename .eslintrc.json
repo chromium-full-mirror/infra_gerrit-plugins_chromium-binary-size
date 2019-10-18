@@ -1,0 +1,48 @@
+{
+  "extends": ["eslint:recommended", "google"],
+  "env": {
+    "browser": true,
+    "es6": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 8
+  },
+  "globals": {
+    "assert": false,
+    "__BinarySizePlugin": false,
+    "fixture": false,
+    "flushAsynchronousOperations": false,
+    "gapi": false,
+    "Gerrit": false,
+    "Polymer": false,
+    "setup": false,
+    "sinon": false,
+    "suite": false,
+    "teardown": false,
+    "test": false,
+    "WCT": false
+  },
+  "rules": {
+    "block-spacing": ["error", "always"],
+    "brace-style": ["error", "1tbs", { "allowSingleLine": true }],
+    "camelcase": "off",
+    "keyword-spacing": ["error", { "after": true, "before": true }],
+    "max-len": ["error", 80, 2, { "ignoreComments": true }],
+    "new-cap": ["error", { "capIsNewExceptions": ["Polymer"] }],
+    "no-console": "off",
+    "no-var": "error",
+    "prefer-arrow-callback": "error",
+    "prefer-const": "error",
+    "prefer-spread": "error",
+    "require-jsdoc": "off",
+    "semi": [2, "always"],
+    "template-curly-spacing": "error",
+    "valid-jsdoc": "off"
+  },
+  "plugins": [
+    "html"
+  ],
+  "settings": {
+    "html/report-bad-indent": "error"
+  }
+}

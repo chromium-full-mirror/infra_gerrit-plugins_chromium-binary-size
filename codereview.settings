@@ -1,0 +1,3 @@
+GERRIT_HOST: True
+CODE_REVIEW_SERVER: https://chromium-review.googlesource.com/
+

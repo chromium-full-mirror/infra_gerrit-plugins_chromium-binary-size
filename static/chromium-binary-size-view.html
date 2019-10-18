@@ -1,0 +1,121 @@
+<!--
+Copyright 2019 The Chromium Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+<dom-module id="chromium-binary-size-view">
+  <template>
+    <style>
+      :host {
+        border-top: 1px solid #ddd;
+        display: block;
+        margin: 1em 0;
+      }
+      .container {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+      }
+      .header {
+        background-color: #fafafa;
+        border-bottom: 1px solid #ddd;
+        justify-content: space-between;
+        min-height: 3.2em;
+        padding: .5em var(--default-horizontal-margin, 1rem);
+      }
+      div.help {
+        align-self: flex-end;
+        margin: auto 0 auto auto;
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        font-weight: normal;
+        justify-content: flex-end;
+      }
+      .header .label {
+        font: inherit;
+        font-family: var(--font-family-bold);
+        font-size: 1.17em;
+        margin-right: 1em;
+      }
+      .header .update {
+        color: rgba(0, 0, 0, .7);
+      }
+      table {
+        border-collapse: collapse;
+      }
+      th, td {
+        padding: .2em .4em;
+        text-align: left;
+      }
+      td.size {
+        text-align: right;
+      }
+      td.size.green {
+        background-color: rgb(139, 195, 74);
+      }
+      td.size.red {
+        background-color: #f44336;
+      }
+      td.link {
+        text-align: center;
+      }
+      a {
+        color: #1a4494;
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+    </style>
+      <div class="header container">
+        <h3 class="label">Binary Size:</h3>
+        <template is="dom-if" if="[[shouldShowBinarySizeTable(_binarySizeInfo)]]">
+          <div class="binary-size">
+            <table>
+              <tr>
+                <template is="dom-repeat" items="[[_binarySizeInfo.listings]]" as="cell">
+                  <td class$="size [[cell.css_class]]" title="Limit is [[cell.limit]]">
+                    [[cell.name]] ([[cell.delta]])
+                  </td>
+                </template>
+                <template is="dom-repeat" items="[[_binarySizeInfo.extras]]" as="row">
+                  <template is="dom-if" if="[[!!row.url]]">
+                      <td class="link">
+                        <a href="[[row.url]]" target="blank">[[row.text]]</a>
+                      </td>
+                  </template>
+                  <template is="dom-if" if="[[!row.url]]">
+                      <td class="link">[[row.text]]</td>
+                  </template>
+                </template>
+              </tr>
+            </table>
+          </div>
+        </template>
+        <template is="dom-if" if="[[shouldShowNoTrybotScheduled(_binarySizeInfo, _waitingForTrybotSchedule, _waitingForTrybotResult)]]">
+          <div class="update">
+            <a on-click="scheduleBuild" href="#" onclick="return false;">Run the android-binary-size trybot</a>
+            on the latest patchset to see your binary size impact.
+            [[_lastUpdatedString]]
+          </div>
+        </template>
+        <template is="dom-if" if="[[shouldShowWaitingForTrybotRun(_binarySizeInfo, _waitingForTrybotSchedule, _waitingForTrybotResult)]]">
+          <div class="update">
+            Waiting for [[_pluginConfig.tryBuilder]] trybot run to complete.
+            [[_lastUpdatedString]]
+          </div>
+        </template>
+        <template is="dom-if" if="[[shouldShowWaitingForTrybotToSchedule(_binarySizeInfo, _waitingForTrybotSchedule, _waitingForTrybotResult)]]">
+          <div class="update">
+            Scheduling the [[_pluginConfig.tryBuilder]] tryjob.
+            [[_lastUpdatedString]]
+          </div>
+        </template>
+        <div class="help">
+          <a href="https://chromium.googlesource.com/chromium/src/+/master/tools/binary_size/README.md#binary-size-trybot-android_binary_size">What is this?</a>
+        </div>
+      </div>
+  </template>
+  <script src="chromium-binary-size-view.js"></script>
+</dom-module>
