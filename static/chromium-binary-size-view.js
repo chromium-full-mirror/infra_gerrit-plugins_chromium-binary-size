@@ -9,6 +9,26 @@
 
   const BUILDBUCKET_HOST = 'cr-buildbucket.appspot.com';
 
+  const FISHFOOD_USERS = [
+      'agrieve@chromium.org',
+      'benmason@chromium.org',
+      'cjgrant@chromium.org',
+      'estevenson@chromium.org',
+      'fredmello@chromium.org',
+      'hanxi@chromium.org',
+      'hnakashima@chromium.org',
+      'huangs@chromium.org',
+      'jaspercb@google.com',
+      'gordonguan@google.com',
+      'mahmoudi@chromium.org',
+      'mheikal@chromium.org',
+      'mthiesse@chromium.org',
+      'smaier@chromium.org',
+      'tiborg@chromium.org',
+      'wnwen@chromium.org',
+      'yfriedman@chromium.org',
+  ];
+
   Polymer({
     is: 'chromium-binary-size-view',
 
@@ -34,6 +54,10 @@
           };
         },
       },
+      _enabled: {
+        type: Boolean,
+        value: false,
+      }
       _lastUpdatedString: String,
       _needsUpdate: {
         type: Boolean,
@@ -54,10 +78,14 @@
       },
     },
 
-    attached() {
+    async attached() {
       this.listen(document, 'visibilitychange', '_handleVisibilityChange');
       if (!this.change) {
         console.warn('element attached without change property set.');
+        return;
+      }
+      this._enabled = await this._pluginEnabled();
+      if (!this._enabled) {
         return;
       }
       this.reload();
@@ -89,12 +117,21 @@
         tryProject: 'chromium',
         gerritHost: 'chromium-review.googlesource.com',
       };
-      if (!this._pluginConfig) {
-        console.log('binary-size plugin not configured for this project.');
-        return;
-      }
 
       await this._refresh();
+    },
+
+    async _pluginEnabled() {
+      try {
+        let user = await this.plugin.restApi().get('/accounts/self');
+        if (user && user['email'] && FISHFOOD_USERS.includes(user['email'])) {
+          return true;
+        }
+      } catch (err) {
+        console.error('Failed to access currently logged in user info. ' +
+            'Disabling chromium-binary-size plugin:', err)
+      }
+      return false;
     },
 
     _handleVisibilityChange(e) {
@@ -117,7 +154,7 @@
      * binary size, and update the timeout depending on success/failure.
      */
     async _refresh() {
-      if (!this._pluginConfig) {
+      if (!this._pluginConfig || !this._enabled) {
         return;
       }
       if (!window.buildbucket) {
@@ -166,7 +203,9 @@
       if (tryBuilds == null) {
         return null;
       }
+
       let tryBuild = this._selectRelevantBuild(tryBuilds);
+
       // If a trybot is running and there are no completed runs for this
       // patchset, then we are waiting on the trybot.
       this._waitingForTrybotResult = !tryBuild && this._isTrybotRunning(tryBuilds);
