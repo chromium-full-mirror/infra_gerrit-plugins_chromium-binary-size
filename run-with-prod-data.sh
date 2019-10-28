@@ -16,4 +16,4 @@ readonly GERRIT_HOST="${GERRIT_HOST:-chromium-review.googlesource.com}"
 
 (set -x &&
     cd "${GERRIT_DIR}" &&
-    polygerrit-ui/run-server.sh --plugins="$PLUGINS_PATH/chromium-binary-size/static/chromium-binary-size.html,$PLUGINS_PATH/buildbucket/src/main/resources/static/buildbucket.html" --host="$GERRIT_HOST")
+    polygerrit-ui/run-server.sh --plugins="$PLUGINS_PATH/chromium-binary-size/static/chromium-binary-size.html" --host="$GERRIT_HOST")

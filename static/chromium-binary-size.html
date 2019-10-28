@@ -4,6 +4,11 @@ Use of this source code is governed by a BSD-style license that can be
 found in the LICENSE file.
 -->
 
+<script src="https://apis.google.com/js/platform.js"></script>
+
+<script src="./auth.js"></script>
+<script src="./buildbucket-client.js"></script>
+
 <link rel="import" href="./chromium-binary-size-view.html">
 <script>
 'use strict';
@@ -11,6 +16,7 @@ found in the LICENSE file.
 Gerrit.install((plugin) => {
   if (!window.Polymer) { return; } // Only supported in PolyGerrit.
 
+  window.ChromiumBinarySize.initAuth(plugin);
   plugin.registerCustomComponent('change-view-integration', 'chromium-binary-size-view');
 });
 </script>

@@ -57,7 +57,7 @@
       _enabled: {
         type: Boolean,
         value: false,
-      }
+      },
       _lastUpdatedString: String,
       _needsUpdate: {
         type: Boolean,
@@ -157,10 +157,6 @@
       if (!this._pluginConfig || !this._enabled) {
         return;
       }
-      if (!window.buildbucket) {
-        console.error('The "chromium-binary-size" plugin requires the ' +
-            '"buildbucket" plugin for searching builds. Please activate both.');
-      }
 
       const newBinarySizeInfo = await this._tryGetNewBinarySizeInfo();
       if (newBinarySizeInfo != null) {
@@ -208,7 +204,8 @@
 
       // If a trybot is running and there are no completed runs for this
       // patchset, then we are waiting on the trybot.
-      this._waitingForTrybotResult = !tryBuild && this._isTrybotRunning(tryBuilds);
+      this._waitingForTrybotResult = !tryBuild && this._isTrybotRunning(
+          tryBuilds);
 
       if (tryBuild) {
         return tryBuild['output']['properties']['binary_size_plugin'];
@@ -241,7 +238,8 @@
         return [];
       }
       try {
-        const bb = new window.buildbucket.BuildbucketV2Client(BUILDBUCKET_HOST);
+        const bb = new window.ChromiumBinarySize.BuildbucketV2Client(
+            BUILDBUCKET_HOST);
 
         const searchResponses = await Promise.all(
             patchPredicates.map((patchPredicate) => bb.searchBuilds({
@@ -348,7 +346,8 @@
       }
       try {
         this._waitingForTrybotSchedule = true;
-        const bb = new window.buildbucket.BuildbucketV2Client(BUILDBUCKET_HOST);
+        const bb = new window.ChromiumBinarySize.BuildbucketV2Client(
+            BUILDBUCKET_HOST);
 
         const response = await bb.scheduleBuild({
           'builder': {
