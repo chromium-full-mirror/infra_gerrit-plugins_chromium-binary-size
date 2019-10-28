@@ -57,7 +57,7 @@
       _enabled: {
         type: Boolean,
         value: false,
-      }
+      },
       _lastUpdatedString: String,
       _needsUpdate: {
         type: Boolean,
