@@ -56,7 +56,7 @@ found in the LICENSE file.
         },
       });
 
-      window.buildbucket = {
+      window.ChromiumBinarySize = {
         getAccessToken: async () => null,
         compareBuildIds: (a, b) => b - a,
         BuildbucketV2Client: class {
@@ -75,7 +75,7 @@ found in the LICENSE file.
 
     test('_getBuilds', async () => {
       const searchBuilds = sandbox.stub(
-          window.buildbucket.BuildbucketV2Client.prototype, 'searchBuilds');
+          window.ChromiumBinarySize.BuildbucketV2Client.prototype, 'searchBuilds');
       searchBuilds.onCall(0).returns(Promise.resolve({builds: ['build1', 'build2']}));
 
       const predicate1 = {host:'gerrit.example.com',change:42,patchset:2};
@@ -122,7 +122,7 @@ found in the LICENSE file.
     test('exponential backoff', async () => {
       assert.isNotOk(element._updateTimeoutID);
       sandbox.stub(
-          window.buildbucket.BuildbucketV2Client.prototype, 'searchBuilds',
+          window.ChromiumBinarySize.BuildbucketV2Client.prototype, 'searchBuilds',
           () => Promise.reject('nope'));
       const timeoutMs = element._updateIntervalMs;
       await element._refresh();

@@ -14,22 +14,11 @@ android-binary-size trybot which only runs on the chromium repo CQ making this
 not compatible with any other host. If you want this to work on a different
 host, talk to the binary-size@chromium.org team.
 
-### Dependencies
-
-This plugin **requires** the [buildbucket][] plugin in order to search builds.
-Ensure that they are both installed, or prepare to see errors in the browser's
-console.
-
 ## Development
 
 ```bash
 git clone --recursive https://gerrit.googlesource.com/gerrit
 cd gerrit/plugins
-
-git clone https://chromium.googlesource.com/infra/gerrit-plugins/buildbucket
-cd buildbucket
-ln -s src/main/resources/static static  # May be unneeded in the future.
-cd ..
 
 git clone https://chromium.googlesource.com/infra/gerrit-plugins/chromium-binary-size
 cd chromium-binary-size
@@ -53,5 +42,3 @@ npm install -g web-component-tester
 bower install
 wct
 ```
-
-[buildbucket]: https://chromium.googlesource.com/infra/gerrit-plugins/buildbucket/
