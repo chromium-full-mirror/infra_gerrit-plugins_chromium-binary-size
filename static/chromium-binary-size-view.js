@@ -10,23 +10,23 @@
   const BUILDBUCKET_HOST = 'cr-buildbucket.appspot.com';
 
   const FISHFOOD_USERS = [
-      'agrieve@chromium.org',
-      'benmason@chromium.org',
-      'cjgrant@chromium.org',
-      'estevenson@chromium.org',
-      'fredmello@chromium.org',
-      'hanxi@chromium.org',
-      'hnakashima@chromium.org',
-      'huangs@chromium.org',
-      'jaspercb@google.com',
-      'gordonguan@google.com',
-      'mahmoudi@chromium.org',
-      'mheikal@chromium.org',
-      'mthiesse@chromium.org',
-      'smaier@chromium.org',
-      'tiborg@chromium.org',
-      'wnwen@chromium.org',
-      'yfriedman@chromium.org',
+      'agrieve',
+      'benmason',
+      'cjgrant',
+      'estevenson',
+      'fredmello',
+      'hanxi',
+      'hnakashima',
+      'huangs',
+      'jaspercb',
+      'gordonguan',
+      'mahmoudi',
+      'mheikal',
+      'mthiesse',
+      'smaier',
+      'tiborg',
+      'wnwen',
+      'yfriedman',
   ];
 
   Polymer({
@@ -106,9 +106,6 @@
      * Reset the state of the element and fetch and display binary-size.
      */
     async reload() {
-      const pluginName = this.plugin.getPluginName();
-      const project = this.change.project;
-
       // TODO(mheikal): allow for using config files (vs hardcoding) once
       // needed.
       this._pluginConfig = {
@@ -124,8 +121,9 @@
     async _pluginEnabled() {
       try {
         let user = await this.plugin.restApi().get('/accounts/self');
-        if (user && user['email'] && FISHFOOD_USERS.includes(user['email'])) {
-          return true;
+        if (user && user['email']) {
+          let username = user['email'].substring(0, user['email'].indexOf('@'));
+          return FISHFOOD_USERS.includes(username);
         }
       } catch (err) {
         console.error('Failed to access currently logged in user info. ' +
@@ -299,7 +297,7 @@
      *
      * @param {Object} change A Gerrit ChangeInfo object.
      * @param {number} patchNum Revision number of currently displayed patch.
-     * @return {number[]} Revision numbers for the displayed builds.
+     * @return {Array<number>} Revision numbers for the displayed builds.
      */
     _computeValidPatchNums(change, patchNum) {
       // Polymer2 can call observers and the like with undefined parameters.
@@ -349,7 +347,7 @@
         const bb = new window.ChromiumBinarySize.BuildbucketV2Client(
             BUILDBUCKET_HOST);
 
-        const response = await bb.scheduleBuild({
+        await bb.scheduleBuild({
           'builder': {
             'builder': this._pluginConfig.tryBuilder,
             'bucket': this._pluginConfig.tryBucket,
