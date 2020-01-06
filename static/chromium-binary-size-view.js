@@ -18,13 +18,10 @@
       'hanxi',
       'hnakashima',
       'huangs',
-      'jaspercb',
-      'gordonguan',
       'mahmoudi',
       'mheikal',
       'mthiesse',
       'smaier',
-      'tiborg',
       'wnwen',
       'yfriedman',
   ];
@@ -84,11 +81,22 @@
         console.warn('element attached without change property set.');
         return;
       }
-      this._enabled = await this._pluginEnabled();
+
+      // TODO(mheikal): allow for using config files (vs hardcoding) once
+      // needed.
+      this._pluginConfig = {
+        tryBuilder: 'android-binary-size',
+        tryBucket: 'try',
+        tryProject: 'chromium',
+        gerritHost: 'chromium-review.googlesource.com',
+        allowedRepos: ['chromium/src'],
+      };
+
+      this._enabled = await this._pluginEnabled(this.change.project);
       if (!this._enabled) {
         return;
       }
-      this.reload();
+      this._refresh();
     },
 
     detached() {
@@ -102,23 +110,10 @@
       }
     },
 
-    /**
-     * Reset the state of the element and fetch and display binary-size.
-     */
-    async reload() {
-      // TODO(mheikal): allow for using config files (vs hardcoding) once
-      // needed.
-      this._pluginConfig = {
-        tryBuilder: 'android-binary-size',
-        tryBucket: 'try',
-        tryProject: 'chromium',
-        gerritHost: 'chromium-review.googlesource.com',
-      };
-
-      await this._refresh();
-    },
-
-    async _pluginEnabled() {
+    async _pluginEnabled(project) {
+      if (!this._pluginConfig.allowedRepos.includes(project)) {
+        return false;
+      }
       try {
         let user = await this.plugin.restApi().get('/accounts/self');
         if (user && user['email']) {
@@ -200,15 +195,41 @@
 
       let tryBuild = this._selectRelevantBuild(tryBuilds);
 
-      // If a trybot is running and there are no completed runs for this
-      // patchset, then we are waiting on the trybot.
-      this._waitingForTrybotResult = !tryBuild && this._isTrybotRunning(
-          tryBuilds);
+      this._setUIFlags(!!tryBuild, this._isTrybotRunning(tryBuilds));
 
       if (tryBuild) {
         return tryBuild['output']['properties']['binary_size_plugin'];
       } else {
         return null;
+      }
+    },
+
+
+    /**
+     * Sets UI flags related to the state of the trybot.
+     *
+     * Two UI flags can be changed based on the result of polling buildbucket
+     * for trybot runs.
+     *
+     * _waitingForTrybotResult is true iff a relevant trybot has started but not
+     * completed, yet there are no other completed runs.
+     *
+     * _waitingForTrybotSchedule is a temporary flag set after the user
+     * schedules a build until buildbucket actually registers that a run has
+     * been scheduled. This should be cleared (set to false) if buildbucket
+     * shows the tryjob is running or has completed.
+     *
+     * @param {boolean} hasValidBuildResult A tryjob has completed successfully.
+     * @param {boolean} trybotIsRunning A tryjob is currently running.
+     */
+    _setUIFlags(hasValidBuildResult, trybotIsRunning) {
+      // If an android-binary-size run is running and there are no other
+      // completed runs for this patchset, then we are waiting on the trybot.
+      this._waitingForTrybotResult = !hasValidBuildResult && trybotIsRunning;
+      // Clear the waitingForTrybotSchedule flag if the run has already been
+      // scheduled or has already completed.
+      if (this._waitingForTrybotResult || hasValidBuildResult) {
+        this._waitingForTrybotSchedule = false;
       }
     },
 
@@ -343,7 +364,6 @@
         return;
       }
       try {
-        this._waitingForTrybotSchedule = true;
         const bb = new window.ChromiumBinarySize.BuildbucketV2Client(
             BUILDBUCKET_HOST);
 
@@ -359,11 +379,9 @@
             'patchset': this.revision._number,
           }],
         });
+        this._waitingForTrybotSchedule = true;
       } catch(err) {
         console.warn('Buildbucket scheduleBuild failed', err);
-      } finally {
-        // TODO(mheikal): maybe we should wait a bit before declaring the wait
-        // to be over. Or set the state to 'waiting for trybot to finish'.
         this._waitingForTrybotSchedule = false;
       }
     },
