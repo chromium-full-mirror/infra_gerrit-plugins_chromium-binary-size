@@ -94,7 +94,9 @@ found in the LICENSE file.
         </template>
         <template is="dom-if" if="[[shouldShowNoTrybotScheduled(_binarySizeInfo, _waitingForTrybotSchedule, _waitingForTrybotResult)]]">
           <div class="update">
-            <a on-click="scheduleBuild" href="#" onclick="return false;">Run the android-binary-size trybot</a>
+            <a on-click="scheduleBuild" href="#" onclick="return false;">
+              Run the [[_pluginConfig.tryBuilder]] trybot
+            </a>
             on the latest patchset to see your binary size impact.
             [[_lastUpdatedString]]
           </div>

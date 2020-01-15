@@ -376,6 +376,7 @@
           'gerritChanges': [{
             'host': this._pluginConfig.gerritHost,
             'change': this.change._number,
+            'project': this.change.project,
             'patchset': this.revision._number,
           }],
         });
