@@ -9,23 +9,6 @@
 
   const BUILDBUCKET_HOST = 'cr-buildbucket.appspot.com';
 
-  const FISHFOOD_USERS = [
-      'agrieve',
-      'benmason',
-      'cjgrant',
-      'estevenson',
-      'fredmello',
-      'hanxi',
-      'hnakashima',
-      'huangs',
-      'mahmoudi',
-      'mheikal',
-      'mthiesse',
-      'smaier',
-      'wnwen',
-      'yfriedman',
-  ];
-
   Polymer({
     is: 'chromium-binary-size-view',
 
@@ -111,20 +94,7 @@
     },
 
     async _pluginEnabled(project) {
-      if (!this._pluginConfig.allowedRepos.includes(project)) {
-        return false;
-      }
-      try {
-        let user = await this.plugin.restApi().get('/accounts/self');
-        if (user && user['email']) {
-          let username = user['email'].substring(0, user['email'].indexOf('@'));
-          return FISHFOOD_USERS.includes(username);
-        }
-      } catch (err) {
-        console.error('Failed to access currently logged in user info. ' +
-            'Disabling chromium-binary-size plugin:', err)
-      }
-      return false;
+      return this._pluginConfig.allowedRepos.includes(project);
     },
 
     _handleVisibilityChange(e) {
@@ -174,8 +144,10 @@
     _processBinarySizeInfo(binarySizeInfo) {
       binarySizeInfo.loaded = true;
       binarySizeInfo.listings.map((listing) => {
-        if (!listing.allowed) {
+        if (!listing['allowed']) {
           listing['css_class'] = 'red';
+        } else if (listing['large_improvement']) {
+          listing['css_class'] = 'green';
         }
       });
       return binarySizeInfo;
