@@ -65,20 +65,18 @@
         return;
       }
 
-      // TODO(mheikal): allow for using config files (vs hardcoding) once
-      // needed.
-      this._pluginConfig = {
-        tryBuilder: 'android-binary-size',
-        tryBucket: 'try',
-        tryProject: 'chromium',
-        gerritHost: 'chromium-review.googlesource.com',
-        allowedRepos: ['chromium/src'],
-      };
-
-      this._enabled = await this._pluginEnabled(this.change.project);
-      if (!this._enabled) {
+      try {
+        this._pluginConfig = await this.plugin.restApi().get(
+            `/projects/${encodeURIComponent(this.change.project)}/` +
+            `${encodeURIComponent(this.plugin.getPluginName())}~config`);
+        this._enabled = true;
+      } catch (e) {
+        console.log('The chromium-binary-size plugin is not enabled on ' +
+            this.change.project);
+        this._enabled = false;
         return;
       }
+
       this._refresh();
     },
 
@@ -91,10 +89,6 @@
         window.clearTimeout(this._updateTimeoutID);
         this._updateTimeoutID = null;
       }
-    },
-
-    async _pluginEnabled(project) {
-      return this._pluginConfig.allowedRepos.includes(project);
     },
 
     _handleVisibilityChange(e) {

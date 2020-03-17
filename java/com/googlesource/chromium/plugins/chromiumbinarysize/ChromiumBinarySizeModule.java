@@ -4,6 +4,8 @@
 
 package com.googlesource.chromium.plugins.chromiumbinarysize;
 
+import static com.google.gerrit.server.project.ProjectResource.PROJECT_KIND;
+
 import com.google.gerrit.extensions.registration.DynamicSet;
 import com.google.gerrit.extensions.restapi.RestApiModule;
 import com.google.gerrit.extensions.webui.JavaScriptPlugin;
@@ -18,5 +20,7 @@ public class ChromiumBinarySizeModule extends RestApiModule {
   protected void configure() {
     DynamicSet.bind(binder(), WebUiPlugin.class)
         .toInstance(new JavaScriptPlugin("chromium-binary-size.html"));
+
+    get(PROJECT_KIND, "config").to(GetConfig.class);
   }
 }
