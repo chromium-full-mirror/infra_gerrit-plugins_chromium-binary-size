@@ -9,10 +9,25 @@ then shows an inline table with the metric deltas + links to SuperSize output.
 
 ## Usage
 
-This plugin uses no config files since it only works with the
-android-binary-size trybot which only runs on the chromium repo CQ making this
-not compatible with any other host. If you want this to work on a different
-host, talk to the binary-size@chromium.org team.
+This plugin is configured via the `chromium-binary-size.config` file present in
+the repo's `refs/meta/config` ref, as well as the same file in all repositories
+in the repo's inheritance chain (up to and including All-Projects).
+
+An example chromium-binary-size.config is below (this enables the plugin on the
+chromium/src repo using the android-binary-size trybot:
+
+```
+[host]
+  gerrit = "chromium-review.googlesource.com"
+
+[repo "chromium/src"]
+  builder = "android-binary-size"
+  bucket = "try"
+  project = "chromium"
+```
+
+All changes to `chromium-binary-size.config` files are instantly reflected.
+There is no caching period or need to restart the server.
 
 ## Development
 
