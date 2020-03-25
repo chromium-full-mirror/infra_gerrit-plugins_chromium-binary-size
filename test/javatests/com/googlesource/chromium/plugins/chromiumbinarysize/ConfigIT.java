@@ -22,34 +22,31 @@ import java.io.Reader;
 import org.eclipse.jgit.internal.storage.dfs.InMemoryRepository;
 import org.eclipse.jgit.junit.TestRepository;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @TestPlugin(
     name = "chromium-binary-size",
     sysModule = "com.googlesource.chromium.plugins.chromiumbinarysize.ChromiumBinarySizeModule")
 public class ConfigIT extends LightweightPluginDaemonTest {
 
-  private static final Logger LOG = LoggerFactory.getLogger(ConfigIT.class);
   private static final String PLUGIN_NAME = "chromium-binary-size";
   Project.NameKey testRepoKey;
-  TestRepository<InMemoryRepository> testRepo;
+  TestRepository<InMemoryRepository> testInMemoryRepo;
   @Inject
   private ProjectOperations projectOperations;
 
   void setupTestRepo() throws Exception {
     // Make sure the manifest exists so the configuration loads successfully.
     testRepoKey = projectOperations.newProject().name(name("testrepo")).create();
-    testRepo = cloneProject(testRepoKey, admin);
+    testInMemoryRepo = cloneProject(testRepoKey, admin);
   }
 
   void pushConfig(String config) throws Exception {
     // This will trigger a configuration reload.
-    GitUtil.fetch(testRepo, RefNames.REFS_CONFIG + ":config");
-    testRepo.reset("config");
+    GitUtil.fetch(testInMemoryRepo, RefNames.REFS_CONFIG + ":config");
+    testInMemoryRepo.reset("config");
     PushOneCommit push =
         pushFactory.create(
-            admin.newIdent(), testRepo, "Subject", PLUGIN_NAME + ".config", config);
+            admin.newIdent(), testInMemoryRepo, "Subject", PLUGIN_NAME + ".config", config);
     PushOneCommit.Result res = push.to("refs/meta/config");
     res.assertOkStatus();
   }
