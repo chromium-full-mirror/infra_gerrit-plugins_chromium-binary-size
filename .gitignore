@@ -9,3 +9,4 @@ bower_components
 /bazel-out
 /bazel-testlogs
 .DS_Store
+node_modules

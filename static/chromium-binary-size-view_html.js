@@ -1,10 +1,10 @@
-<!--
-Copyright 2019 The Chromium Authors. All rights reserved.
-Use of this source code is governed by a BSD-style license that can be
-found in the LICENSE file.
--->
-<dom-module id="chromium-binary-size-view">
-  <template>
+/** @license
+ * Copyright 2019 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ */
+
+export const htmlTemplate = Polymer.html`
     <style include="gr-change-view-integration-shared-styles">
       :host {
         border-top: 1px solid var(--border-color);
@@ -63,9 +63,9 @@ found in the LICENSE file.
         <template is="dom-if" if="[[shouldShowBinarySizeTable(_binarySizeInfo)]]">
           <div class="binary-size">
             <table>
-              <tr>
+              <tbody><tr>
                 <template is="dom-repeat" items="[[_binarySizeInfo.listings]]" as="cell">
-                  <td class$="size [[cell.css_class]]" title="Limit is [[cell.limit]]">
+                  <td class\$="size [[cell.css_class]]" title="Limit is [[cell.limit]]">
                     [[cell.name]]
                     <template is="dom-if" if="[[cell.url]]">
                       (<a href="[[cell.url]]" target="_blank">[[cell.delta]]</a>)
@@ -86,7 +86,7 @@ found in the LICENSE file.
                   </template>
                 </template>
               </tr>
-            </table>
+            </tbody></table>
           </div>
         </template>
         <template is="dom-if" if="[[shouldShowNoTrybotScheduled(_binarySizeInfo, _waitingForTrybotSchedule, _waitingForTrybotResult)]]">
@@ -112,11 +112,9 @@ found in the LICENSE file.
         </template>
         <div class="help">
           <a href="https://chromium.googlesource.com/chromium/src/+/master/docs/speed/binary_size/android_binary_size_trybot.md" tabindex="-1" target="_blank">
-            <gr-button link>What is this?</gr-button>
+            <gr-button link="">What is this?</gr-button>
           </a>
         </div>
       </div>
     </template>
-  </template>
-  <script src="chromium-binary-size-view.js"></script>
-</dom-module>
+`;

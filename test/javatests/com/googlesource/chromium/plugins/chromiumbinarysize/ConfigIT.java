@@ -9,7 +9,6 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.gerrit.acceptance.GitUtil;
 import com.google.gerrit.acceptance.LightweightPluginDaemonTest;
 import com.google.gerrit.acceptance.PushOneCommit;
-import com.google.gerrit.acceptance.PushOneCommit.Result;
 import com.google.gerrit.acceptance.RestResponse;
 import com.google.gerrit.acceptance.TestPlugin;
 import com.google.gerrit.acceptance.testsuite.project.ProjectOperations;

@@ -7,11 +7,10 @@ found in the LICENSE file.
 <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes">
 <title>chromium-binary-size-view</title>
 
-<script src="../bower_components/webcomponentsjs/webcomponents-lite.js"></script>
+<script src="../node_modules/@webcomponents/webcomponentsjs/webcomponents-loader.js"></script>
 <script src="../bower_components/web-component-tester/browser.js"></script>
 
-<link rel="import" href="../bower_components/iron-test-helpers/iron-test-helpers.html">
-<link rel="import" href="../static/chromium-binary-size-view.html">
+
 
 <test-fixture id="basic">
   <template>
@@ -19,160 +18,159 @@ found in the LICENSE file.
   </template>
 </test-fixture>
 
-<script>
-  suite('chromium-binary-size-view basic tests', () => {
-    let element;
-    let sandbox;
+<script type="module">
+import './common-test-setup.js';
+import '@polymer/iron-test-helpers/iron-test-helpers.js';
+import {BuildbucketV2Client} from '../static/buildbucket-client.js';
+import '../static/chromium-binary-size-view.js';
 
-    setup(() => {
-      element = fixture('basic');
-      Object.assign(element, {
-        plugin: {
-          getPluginName() { return 'chromium-binary-size'; },
-          restApi() {
-            return {
-              getLoggedIn: async () => true,
-            };
-          },
+suite('chromium-binary-size-view basic tests', () => {
+  let element;
+  let sandbox;
+
+  setup(() => {
+    element = fixture('basic');
+    Object.assign(element, {
+      plugin: {
+        getPluginName() { return 'chromium-binary-size'; },
+        restApi() {
+          return {
+            getLoggedIn: async () => true,
+          };
         },
-        change: {
-          project: 'project-foo',
-          _number: 1,
-          revisions: {
-            'deadbeef': {
-              _number: 1,
-            },
-          },
-        },
-        _pluginConfig: {
-          gerritHost: 'gerrit.example.com',
-          tryBucket: 'try',
-          tryBuilder: 'android-binary-size',
-          tryProject: 'chromium',
-        },
-        _enabled: true,
-        revision: {
-          _number: 1,
-        },
-      });
-
-      window.ChromiumBinarySize = {
-        getAccessToken: async () => null,
-        compareBuildIds: (a, b) => b - a,
-        BuildbucketV2Client: class {
-          async searchBuilds() {
-            return { builds: []};
-          }
-        },
-      };
-
-      sandbox = sinon.sandbox.create();
-    });
-
-    teardown(() => {
-      sandbox.restore();
-    });
-
-    test('_getBuilds', async () => {
-      const searchBuilds = sandbox.stub(
-          window.ChromiumBinarySize.BuildbucketV2Client.prototype, 'searchBuilds');
-      searchBuilds.onCall(0).returns(Promise.resolve({builds: ['build1', 'build2']}));
-
-      const predicate1 = {host:'gerrit.example.com',change:42,patchset:2};
-      assert.deepEqual(
-          await element._getBuilds(
-            'some.bucket', [predicate1]),
-          ['build1', 'build2']);
-      const params = searchBuilds.getCall(0).args[0];
-      assert.deepEqual(params['predicate']['gerritChanges'][0], predicate1);
-      assert.deepEqual(params['predicate']['builder']['builder'], 'android-binary-size');
-    });
-
-    test('_selectRelevantBuilds', () => {
-      const builds = [
-          {'endTime': '1234', output:{properties:{binary_size_plugin:{}}}},
-          {output:{properties:{binary_size_plugin:{}}}},
-          {output:{properties:{}}},
-          {}];
-      assert.deepEqual(element._selectRelevantBuild(builds), builds[0]);
-    });
-
-    test('_tryjobPatchPredicates', () => {
-      element.change = {_number: 42};
-      element._pluginConfig = {gerritHost: 'chromium-review.googlesource.com'};
-      assert.deepEqual(element._tryjobPatchPredicates([2, 3, 4]), [
-          {
-            host: 'chromium-review.googlesource.com',
-            change: 42,
-            patchset: 2,
-          },
-          {
-            host: 'chromium-review.googlesource.com',
-            change: 42,
-            patchset: 3,
-          },
-          {
-            host: 'chromium-review.googlesource.com',
-            change: 42,
-            patchset: 4,
-          },
-      ]);
-    });
-
-    test('exponential backoff', async () => {
-      assert.isNotOk(element._updateTimeoutID);
-      sandbox.stub(
-          window.ChromiumBinarySize.BuildbucketV2Client.prototype, 'searchBuilds',
-          () => Promise.reject('nope'));
-      const timeoutMs = element._updateIntervalMs;
-      await element._refresh();
-      assert.isAbove(element._updateIntervalMs, 2 * timeoutMs);
-      assert.isOk(element._updateTimeoutID);
-    });
-
-    test('valid patch numbers', () => {
-      let change = {
+      },
+      change: {
+        project: 'project-foo',
+        _number: 1,
         revisions: {
-          rev1: {_number: 1, kind: 'TRIVIAL_REBASE'},
-          rev2: {_number: 2, kind: 'TRIVIAL_REBASE'},
-          rev3: {_number: 3, kind: 'TRIVIAL_REBASE'},
+          'deadbeef': {
+            _number: 1,
+          },
         },
-      };
-      assert.deepEqual(element._computeValidPatchNums(change, 3), [3, 2, 1]);
-      assert.deepEqual(element._computeValidPatchNums(change, 2), [2, 1]);
-
-      change.status = 'MERGED';
-      assert.deepEqual(element._computeValidPatchNums(change, 3), [2, 1]);
-
-      change = {
-        revisions: {
-          rev1: {_number: 1, kind: 'TRIVIAL_REBASE'},
-          rev2: {_number: 2, kind: 'REBASE'},
-          rev3: {_number: 3, kind: 'TRIVIAL_REBASE'},
-        },
-      };
-
-      assert.deepEqual(element._computeValidPatchNums(change, 3), [3, 2]);
+      },
+      _pluginConfig: {
+        gerritHost: 'gerrit.example.com',
+        tryBucket: 'try',
+        tryBuilder: 'android-binary-size',
+        tryProject: 'chromium',
+      },
+      _enabled: true,
+      revision: {
+        _number: 1,
+      },
     });
+    sandbox = sinon.sandbox.create();
 
-    test('UI mutual exclusivity', async () => {
-      uiMethods = [
-        element.shouldShowBinarySizeTable,
-        element.shouldShowNoTrybotScheduled,
-        element.shouldShowWaitingForTrybotRun,
-        element.shouldShowWaitingForTrybotToSchedule,
-      ];
-      [{loaded: true}, {loaded: false}, undefined].forEach((binarySizeInfo) => {
-        [true, false].forEach((waitingForTrybotSchedule) => {
-          [true, false].forEach((waitingForTrybotResult) => {
-            result = uiMethods.map(
-                (method) => method.call(
-                    element, binarySizeInfo, waitingForTrybotSchedule, waitingForTrybotResult));
-            // Only one function should be truthy
-            assert.equal(result.filter((val) => !!val).length, 1);
-          });
+  });
+
+  teardown(() => {
+    sandbox.restore();
+  });
+
+  test('renders the element', () => {
+    assert.isOk(element);
+  });
+
+  test('_getBuilds', async () => {
+    const searchBuilds = sandbox.stub(
+        BuildbucketV2Client.prototype, 'searchBuilds');
+    searchBuilds.returns(Promise.resolve({builds: ['build1', 'build2']}));
+
+    const predicate1 = {host:'gerrit.example.com',change:42,patchset:2};
+    assert.deepEqual(
+        await element._getBuilds(
+          'some.bucket', [predicate1]),
+        ['build1', 'build2']);
+    const params = searchBuilds.getCall(0).args[0];
+    assert.deepEqual(params['predicate']['gerritChanges'][0], predicate1);
+    assert.deepEqual(params['predicate']['builder']['builder'], 'android-binary-size');
+  });
+
+  test('_selectRelevantBuilds', () => {
+    const builds = [
+        {'endTime': '1234', output:{properties:{binary_size_plugin:{}}}},
+        {output:{properties:{binary_size_plugin:{}}}},
+        {output:{properties:{}}},
+        {}];
+    assert.deepEqual(element._selectRelevantBuild(builds), builds[0]);
+  });
+
+  test('_tryjobPatchPredicates', () => {
+    element.change = {_number: 42};
+    element._pluginConfig = {gerritHost: 'chromium-review.googlesource.com'};
+    assert.deepEqual(element._tryjobPatchPredicates([2, 3, 4]), [
+        {
+          host: 'chromium-review.googlesource.com',
+          change: 42,
+          patchset: 2,
+        },
+        {
+          host: 'chromium-review.googlesource.com',
+          change: 42,
+          patchset: 3,
+        },
+        {
+          host: 'chromium-review.googlesource.com',
+          change: 42,
+          patchset: 4,
+        },
+    ]);
+  });
+
+  test('exponential backoff', async () => {
+    assert.isNotOk(element._updateTimeoutID);
+    sandbox.stub(
+        BuildbucketV2Client.prototype, 'searchBuilds',
+        () => Promise.reject('nope'));
+    const timeoutMs = element._updateIntervalMs;
+    await element._refresh();
+    assert.isAbove(element._updateIntervalMs, 2 * timeoutMs);
+    assert.isOk(element._updateTimeoutID);
+  });
+
+  test('valid patch numbers', () => {
+    let change = {
+      revisions: {
+        rev1: {_number: 1, kind: 'TRIVIAL_REBASE'},
+        rev2: {_number: 2, kind: 'TRIVIAL_REBASE'},
+        rev3: {_number: 3, kind: 'TRIVIAL_REBASE'},
+      },
+    };
+    assert.deepEqual(element._computeValidPatchNums(change, 3), [3, 2, 1]);
+    assert.deepEqual(element._computeValidPatchNums(change, 2), [2, 1]);
+
+    change.status = 'MERGED';
+    assert.deepEqual(element._computeValidPatchNums(change, 3), [2, 1]);
+
+    change = {
+      revisions: {
+        rev1: {_number: 1, kind: 'TRIVIAL_REBASE'},
+        rev2: {_number: 2, kind: 'REBASE'},
+        rev3: {_number: 3, kind: 'TRIVIAL_REBASE'},
+      },
+    };
+
+    assert.deepEqual(element._computeValidPatchNums(change, 3), [3, 2]);
+  });
+
+  test('UI mutual exclusivity', async () => {
+    let uiMethods = [
+      element.shouldShowBinarySizeTable,
+      element.shouldShowNoTrybotScheduled,
+      element.shouldShowWaitingForTrybotRun,
+      element.shouldShowWaitingForTrybotToSchedule,
+    ];
+    [{loaded: true}, {loaded: false}, undefined].forEach((binarySizeInfo) => {
+      [true, false].forEach((waitingForTrybotSchedule) => {
+        [true, false].forEach((waitingForTrybotResult) => {
+          let result = uiMethods.map(
+              (method) => method.call(
+                  element, binarySizeInfo, waitingForTrybotSchedule, waitingForTrybotResult));
+          // Only one function should be truthy
+          assert.equal(result.filter((val) => !!val).length, 1);
         });
       });
     });
   });
+});
 </script>

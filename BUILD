@@ -1,3 +1,5 @@
+load("@npm_bazel_rollup//:index.bzl", "rollup_bundle")
+load("//tools/bzl:js.bzl", "polygerrit_plugin")
 load("//tools/bzl:plugin.bzl", "gerrit_plugin")
 load("//tools/bzl:junit.bzl", "junit_tests")
 
@@ -10,6 +12,24 @@ gerrit_plugin(
         "Implementation-Title: Chromium Binary Size plugin",
     ],
     resources = glob(["static/**/*"]),
+)
+
+polygerrit_plugin(
+    name = "chromium-binary-size-resources",
+    app = "chromium-binary-size-bundle.js",
+    plugin_name = "chromium-binary-size",
+)
+
+rollup_bundle(
+    name = "chromium-binary-size-bundle",
+    srcs = glob(["static/*.js"]),
+    entry_point = "static/chromium-binary-size.js",
+    format = "iife",
+    rollup_bin = "//tools/node_tools:rollup-bin",
+    sourcemap = "hidden",
+    deps = [
+        "@tools_npm//rollup-plugin-node-resolve",
+    ],
 )
 
 junit_tests(
