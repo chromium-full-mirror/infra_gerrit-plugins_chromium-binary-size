@@ -19,7 +19,7 @@ public class ChromiumBinarySizeModule extends RestApiModule {
   @Override
   protected void configure() {
     DynamicSet.bind(binder(), WebUiPlugin.class)
-        .toInstance(new JavaScriptPlugin("chromium-binary-size.html"));
+        .toInstance(new JavaScriptPlugin("chromium-binary-size.js"));
 
     get(PROJECT_KIND, "config").to(GetConfig.class);
   }
