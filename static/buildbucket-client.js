@@ -9,7 +9,7 @@ import {getAccessToken} from './auth.js';
 /**
  * Client for Buildbucket v2 API.
  * Requests and responses to and from the RPC methods are defined in
- *   https://chromium.googlesource.com/infra/luci/luci-go/+/master/buildbucket/proto/rpc.proto
+ *   https://chromium.googlesource.com/infra/luci/luci-go/+/HEAD/buildbucket/proto/rpc.proto
  * For more help see:
  *   https://goto.google.com/buildbucket-rpc
  */

@@ -111,7 +111,7 @@ export const htmlTemplate = Polymer.html`
           </div>
         </template>
         <div class="help">
-          <a href="https://chromium.googlesource.com/chromium/src/+/master/docs/speed/binary_size/android_binary_size_trybot.md" tabindex="-1" target="_blank">
+          <a href="https://chromium.googlesource.com/chromium/src/+/HEAD/docs/speed/binary_size/android_binary_size_trybot.md" tabindex="-1" target="_blank">
             <gr-button link="">What is this?</gr-button>
           </a>
         </div>
