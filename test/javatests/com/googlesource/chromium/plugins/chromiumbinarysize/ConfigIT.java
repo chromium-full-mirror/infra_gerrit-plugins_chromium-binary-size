@@ -81,10 +81,10 @@ public class ConfigIT extends LightweightPluginDaemonTest {
         anonymousRestSession.get("/projects/" + testRepoKey + "/" + PLUGIN_NAME + "~config");
     r.assertOK();
     String responseText = extractResponse(r.getReader());
-    assertThat(responseText).contains("\"tryBuilder\": \"android-binary-size\"");
-    assertThat(responseText).contains("\"tryBucket\": \"try\"");
-    assertThat(responseText).contains("\"tryProject\": \"chromium\"");
-    assertThat(responseText).contains("\"gerritHost\": \"test.url\"");
+    assertThat(responseText).contains("\"tryBuilder\":\"android-binary-size\"");
+    assertThat(responseText).contains("\"tryBucket\":\"try\"");
+    assertThat(responseText).contains("\"tryProject\":\"chromium\"");
+    assertThat(responseText).contains("\"gerritHost\":\"test.url\"");
   }
 
   @Test
