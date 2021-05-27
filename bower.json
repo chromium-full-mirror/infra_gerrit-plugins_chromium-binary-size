@@ -1,8 +1,0 @@
-{
-  "name": "binary-size-tests",
-  "devDependencies": {
-    "web-component-tester": "web-component-tester#^6.0.0"
-  },
-  "ignore": []
-}
-

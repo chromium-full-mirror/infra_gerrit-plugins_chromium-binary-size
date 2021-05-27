@@ -51,9 +51,5 @@ GERRIT_DIR="$HOME/gerrit" ./run-with-prod-data.sh
 ### Testing
 
 ```bash
-# Install dependencies.
-npm install -g bower
-npm install -g web-component-tester
-bower install
-wct
+npm run wct-test
 ```
