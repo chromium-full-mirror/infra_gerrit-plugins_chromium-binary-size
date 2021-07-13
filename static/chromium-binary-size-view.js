@@ -6,8 +6,6 @@
 
 import {htmlTemplate} from './chromium-binary-size-view_html.js';
 
-import {BuildbucketV2Client} from './buildbucket-client.js';
-
 const DEFAULT_UPDATE_INTERVAL_MS = 1000 * 15;
 const MAX_UPDATE_INTERVAL_MS = 1000 * 60 * 5;
 
@@ -142,6 +140,10 @@ class ChromiumBinarySizeView extends Polymer.Element {
     if (!this._pluginConfig || !this._enabled) {
       return;
     }
+    if (!window.buildbucket) {
+      console.error('The "chromium-binary-size" plugin requires the' +
+          '"buildbucket" plugin for searching builds. Please activate both.');
+    }
 
     const newBinarySizeInfo = await this._tryGetNewBinarySizeInfo();
     if (newBinarySizeInfo != null) {
@@ -250,7 +252,7 @@ class ChromiumBinarySizeView extends Polymer.Element {
       return [];
     }
     try {
-      const bb = new BuildbucketV2Client(BUILDBUCKET_HOST);
+      const bb = new window.buildbucket.BuildbucketV2Client(BUILDBUCKET_HOST);
       const props_filter = 'builds.*.output.properties.fields.binarySizePlugin,'
           + 'builds.*.endTime,builds.*.startTime';
 
@@ -358,7 +360,7 @@ class ChromiumBinarySizeView extends Polymer.Element {
       return;
     }
     try {
-      const bb = new BuildbucketV2Client(BUILDBUCKET_HOST);
+      const bb = new window.buildbucket.BuildbucketV2Client(BUILDBUCKET_HOST);
 
       await bb.scheduleBuild({
         builder: {

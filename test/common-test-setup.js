@@ -47,3 +47,5 @@ import '../node_modules/polymer-bridges/polymer/lib/elements/custom-style_bridge
 import '../node_modules/polymer-bridges/polymer/lib/legacy/mutable-data-behavior_bridge.js';
 import '../node_modules/polymer-bridges/polymer/polymer-legacy_bridge.js';
 import '@polymer/iron-test-helpers/iron-test-helpers.js';
+
+export {BuildbucketV2Client} from '../node_modules/buildbucket/src/main/resources/static/buildbucket-client.js'

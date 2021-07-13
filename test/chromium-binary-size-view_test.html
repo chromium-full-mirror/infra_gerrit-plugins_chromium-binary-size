@@ -18,7 +18,7 @@ found in the LICENSE file.
 
 <script type="module">
 import './common-test-setup.js';
-import {BuildbucketV2Client} from '../static/buildbucket-client.js';
+import {BuildbucketV2Client} from './common-test-setup.js';
 import '../static/chromium-binary-size-view.js';
 
 suite('chromium-binary-size-view basic tests', () => {
@@ -56,6 +56,10 @@ suite('chromium-binary-size-view basic tests', () => {
         _number: 1,
       },
     });
+    window.buildbucket = {
+      getAccessToken: async () => null,
+      BuildbucketV2Client,
+    };
     sandbox = sinon.sandbox.create();
 
   });
