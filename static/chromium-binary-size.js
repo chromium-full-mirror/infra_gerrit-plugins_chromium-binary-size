@@ -4,7 +4,6 @@
  * found in the LICENSE file.
  */
 
-import {initAuth} from './auth.js';
 import './chromium-binary-size-view.js';
 
 const platformJsElement = document.createElement('script');
@@ -13,7 +12,6 @@ platformJsElement.setAttribute(
 document.head.appendChild(platformJsElement);
 
 Gerrit.install(plugin => {
-  initAuth(plugin, platformJsElement);
   plugin.registerCustomComponent(
       'change-view-integration', 'chromium-binary-size-view');
 });
