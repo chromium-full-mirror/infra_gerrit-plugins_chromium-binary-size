@@ -1,22 +1,24 @@
-/** @license
- * Copyright 2019 The Chromium Authors. All rights reserved.
- * Use of this source code is governed by a BSD-style license that can be
- * found in the LICENSE file.
- */
+// Copyright 2021 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
 
-import {htmlTemplate} from './chromium-binary-size-view_html.js';
+import {
+    chromiumBinarySizeViewTemplate,
+  } from './chromium-binary-size-view_html.js';
 
 const DEFAULT_UPDATE_INTERVAL_MS = 1000 * 15;
 const MAX_UPDATE_INTERVAL_MS = 1000 * 60 * 5;
 
 const BUILDBUCKET_HOST = 'cr-buildbucket.appspot.com';
 
+import {installChecksResult, DATA_SYMBOL} from './checks-result.js';
+
 class ChromiumBinarySizeView extends Polymer.Element {
   /** @returns {string} name of the component */
   static get is() { return 'chromium-binary-size-view'; }
 
   /** @returns {?} template for this component */
-  static get template() { return htmlTemplate; }
+  static get template() { return chromiumBinarySizeViewTemplate; }
 
   static get properties() {
     return {
@@ -94,6 +96,21 @@ class ChromiumBinarySizeView extends Polymer.Element {
       return;
     }
 
+    if (!window.buildbucket) {
+      console.error('The "chromium-binary-size" plugin requires the' +
+          '"buildbucket" plugin for searching builds. Please activate both.');
+      return;
+    }
+
+    const {CacheObject, CHECKS_OPT_CACHE_KEY} = window.buildbucket;
+    const optCache = new CacheObject(CHECKS_OPT_CACHE_KEY);
+    if (optCache.read().optedIn) {
+      this.plugin.checks().register({
+        fetch: (changeData) => this.fetchChecks(changeData),
+      });
+      this.plugin.hook('check-result-expanded').onAttached(installChecksResult);
+    }
+
     this._refresh();
   }
 
@@ -133,6 +150,120 @@ class ChromiumBinarySizeView extends Polymer.Element {
   }
 
   /**
+   * Returns a CheckRun and CheckResult which contain binary size information.
+   *
+   * For more information on the Checks API:
+   *   https://gerrit.googlesource.com/gerrit/+/refs/heads/master/polygerrit-ui/app/api/checks.ts
+   *
+   * TODO(gavinmak): The code only returns CheckResults if _binarySizeInfo is
+   * already available. Add support for CheckRun actions so users can launch a
+   * tryjob through Checks.
+   */
+  async fetchChecks(changeData) {
+    const {changeNumber, patchsetNumber} = changeData;
+    let binarySizeInfo;
+
+    // Gerrit's "Files" and "Checks" tab have two different patchset selectors.
+    // The patchset in "Files" is revision._number while in "Checks", is
+    // changeData.patchsetNumber.
+    if (patchsetNumber === this.revision._number) {
+      binarySizeInfo = this._binarySizeInfo;
+    } else {
+      // If the patchsets aren't equal, fetch the correct builds.
+      // TODO(gavinmak): Clean up code and dedupe from _refresh().
+      const patchsets = this._computeValidPatchNums(
+          this.change, patchsetNumber);
+      const builds = (await this._tryGetNewBinarySizeBuilds(patchsets) || []);
+      binarySizeInfo = this._processBinarySizeBuilds(builds, false);
+    }
+
+    // If there is no binary size info yet, return no runs or results.
+    if (!this._binarySizeInfo?.loaded) {
+      return {responseCode: 'OK'};
+    }
+
+    const {extras, listings, build, numBuilds} = binarySizeInfo;
+    const runId = `//${BUILDBUCKET_HOST}/chromium-binary-size-plugin`;
+    const resultLinks = extras.map(e => {
+      const isApkBreakdown = e.text === 'APK Breakdown';
+      return {
+        url: e.url,
+        tooltip: e.text,
+        primary: isApkBreakdown,
+        icon: isApkBreakdown ? 'file_present' : 'external',
+      };
+    });
+
+    return {
+      responseCode: 'OK',
+      runs: [{
+        change: changeNumber,
+        patchset: patchsetNumber,
+        attempt: numBuilds,
+        externalId: runId,
+        checkName: 'Chromium Binary Size',
+        checkDescription: 'This run shows how your change and patchset ' +
+            'affect the normalized APK size and other checks',
+        checkLink: 'https://chromium.googlesource.com/chromium/src/+/HEAD/' +
+            'docs/speed/binary_size/android_binary_size_trybot.md',
+        status: this.getCheckRunStatus(build),
+        statusDescription: this.getCheckRunStatusDesc(build),
+        results: [{
+          externalId: `${runId}/result`,
+          category: this.getCheckResultCategory(build, listings),
+          summary: 'Chromium Binary Size Changes',
+          message: 'Expand to view the changes in binary size and other checks',
+          links: resultLinks,
+        }],
+        [DATA_SYMBOL]: {listings},
+      }],
+    };
+  }
+
+  /**
+   * Returns the CheckRun status based on the build.
+   */
+  getCheckRunStatus(build) {
+    if (!build?.status) {
+      return 'RUNNABLE';
+    }
+    if (['SCHEDULED', 'STARTED'].includes(build.status)) {
+      return 'RUNNING';
+    }
+    return 'COMPLETED';
+  }
+
+  /**
+   * Returns the CheckRun statusDescription based on the build.
+   */
+  getCheckRunStatusDesc(build) {
+    const builder = this._pluginConfig.tryBuilder;
+    if (!build?.status) {
+      return `Run the ${builder} trybot`;
+    }
+    if (build.status === 'SCHEDULED') {
+      return `Scheduling the ${builder} tryjob`;
+    }
+    if (build.status === 'STARTED') {
+      return `Waiting for the ${builder} trybot run to complete`;
+    }
+    return '';
+  }
+
+  /**
+   * Returns the CheckResult category based on the build and listings.
+   */
+  getCheckResultCategory(build, listings) {
+    if (listings?.every(l => l.allowed)) {
+      return 'INFO';
+    }
+    if (build?.status === 'SUCCESS') {
+      return 'WARNING';
+    }
+    return 'ERROR';
+  }
+
+  /**
    * Fetch builds from Buildbucket, update the view with information about
    * binary size, and update the timeout depending on success/failure.
    */
@@ -140,15 +271,14 @@ class ChromiumBinarySizeView extends Polymer.Element {
     if (!this._pluginConfig || !this._enabled) {
       return;
     }
-    if (!window.buildbucket) {
-      console.error('The "chromium-binary-size" plugin requires the' +
-          '"buildbucket" plugin for searching builds. Please activate both.');
-    }
 
-    const newBinarySizeInfo = await this._tryGetNewBinarySizeInfo();
-    if (newBinarySizeInfo != null) {
-      this._binarySizeInfo = this._processBinarySizeInfo(newBinarySizeInfo);
+    const newBinarySizeBuilds = await this._tryGetNewBinarySizeBuilds(
+        this._validPatchNums);
+    if (newBinarySizeBuilds != null) {
+      this._binarySizeInfo = this._processBinarySizeBuilds(
+          newBinarySizeBuilds, true);
       this._updateIntervalMs = DEFAULT_UPDATE_INTERVAL_MS;
+      this.plugin.checks().announceUpdate();
     } else {
       this._lastUpdatedString = this._getLastUpdatedString();
       this._updateIntervalMs = Math.min(
@@ -165,15 +295,29 @@ class ChromiumBinarySizeView extends Polymer.Element {
    * Post process binary size info json so as to help the template display
    * code.
    */
-  _processBinarySizeInfo(binarySizeInfo) {
-    binarySizeInfo.loaded = true;
-    binarySizeInfo.listings.map(listing => {
+  _processBinarySizeBuilds(builds, shouldSetFlags) {
+    const build = this._selectRelevantBuild(builds);
+    if (shouldSetFlags) {
+      this._setUIFlags(!!build, this._isTrybotRunning(builds));
+    }
+    if (!build) {
+      return null;
+    }
+
+    const binarySizeInfo = {
+      build,
+      loaded: true,
+      numBuilds: builds.length,
+      ...build['output']['properties']['binary_size_plugin'],
+    };
+
+    for (const listing of binarySizeInfo.listings) {
       if (!listing['allowed']) {
         listing['css_class'] = 'red';
       } else if (listing['large_improvement']) {
         listing['css_class'] = 'green';
       }
-    });
+    }
     return binarySizeInfo;
   }
 
@@ -181,21 +325,13 @@ class ChromiumBinarySizeView extends Polymer.Element {
    * Fetch builds from Buildbucket and return information about binary size,
    * or null in case of failure.
    */
-  async _tryGetNewBinarySizeInfo() {
-    const tryBuilds = await this._getBuilds(
-        this._pluginConfig.tryBucket,
-        this._tryjobPatchPredicates(this._validPatchNums));
-    if (tryBuilds == null) {
-      return null;
-    }
-
-    const tryBuild = this._selectRelevantBuild(tryBuilds);
-
-    this._setUIFlags(!!tryBuild, this._isTrybotRunning(tryBuilds));
-
-    if (tryBuild) {
-      return tryBuild['output']['properties']['binary_size_plugin'];
-    } else {
+  async _tryGetNewBinarySizeBuilds(patchsets) {
+    try {
+      return await this._getBuilds(
+          this._pluginConfig.tryBucket,
+          this._tryjobPatchPredicates(patchsets));
+    } catch (e) {
+      console.warn('Buildbucket search failed', e);
       return null;
     }
   }
@@ -251,34 +387,34 @@ class ChromiumBinarySizeView extends Polymer.Element {
     if (!bucket || patchPredicates.length == 0) {
       return [];
     }
-    try {
-      const bb = new window.buildbucket.BuildbucketV2Client(BUILDBUCKET_HOST);
-      const props_filter = 'builds.*.output.properties.fields.binarySizePlugin,'
-          + 'builds.*.endTime,builds.*.startTime';
 
-      const searchResponses = await Promise.all(
-          patchPredicates.map(patchPredicate => bb.searchBuilds({
-            predicate: {
-              gerritChanges: [patchPredicate],
-              builder: {
-                builder: this._pluginConfig.tryBuilder,
-                bucket: this._pluginConfig.tryBucket,
-                project: this._pluginConfig.tryProject,
-              },
+    const bb = new window.buildbucket.BuildbucketV2Client(BUILDBUCKET_HOST);
+    const fields = [
+      'status',
+      'startTime',
+      'endTime',
+      'output.properties.fields.binarySizePlugin',
+    ].map(f => `builds.*.${f}`).join(',');
+
+    const searchResponses = await Promise.all(
+        patchPredicates.map(patchPredicate => bb.searchBuilds({
+          predicate: {
+            gerritChanges: [patchPredicate],
+            builder: {
+              builder: this._pluginConfig.tryBuilder,
+              bucket: this._pluginConfig.tryBucket,
+              project: this._pluginConfig.tryProject,
             },
-            fields: props_filter,
-          })));
-      const builds = searchResponses.map(response => response['builds'])
-          .filter(Boolean); // filter out undefineds
+          },
+          fields,
+        })));
+    const builds = searchResponses.map(response => response['builds'])
+        .filter(Boolean); // filter out undefineds
 
-      // Concatenate builds in all responses. Assume that the builds in the
-      // response for each tag entry in tags are mutually exclusive, because
-      // each predicate represents one patchset of the CL.
-      return Array.prototype.concat.apply([], builds);
-    } catch (err) {
-      console.warn('Buildbucket search failed', err);
-      return null;
-    }
+    // Concatenate builds in all responses. Assume that the builds in the
+    // response for each tag entry in tags are mutually exclusive, because
+    // each predicate represents one patchset of the CL.
+    return Array.prototype.concat.apply([], builds);
   }
 
   /**
