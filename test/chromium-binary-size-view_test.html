@@ -35,6 +35,12 @@ suite('chromium-binary-size-view basic tests', () => {
             getLoggedIn: async () => true,
           };
         },
+        checks() {
+          return {
+            register: () => ({}),
+            announceUpdate: () => ({}),
+          }
+        }
       },
       change: {
         project: 'project-foo',
@@ -172,6 +178,77 @@ suite('chromium-binary-size-view basic tests', () => {
         });
       });
     });
+  });
+
+  test('getCheckRunStatus', () => {
+    assert.strictEqual(
+        element.getCheckRunStatus({}), 'RUNNABLE');
+    assert.strictEqual(
+        element.getCheckRunStatus({status: 'SCHEDULED'}), 'RUNNING');
+    assert.strictEqual(
+        element.getCheckRunStatus({status: 'STARTED'}), 'RUNNING');
+    assert.strictEqual(
+        element.getCheckRunStatus({status: 'FAILURE'}), 'COMPLETED');
+  });
+
+  test('getCheckRunStatusDesc', () => {
+    assert.strictEqual(
+        element.getCheckRunStatusDesc({}),
+        'Run the android-binary-size trybot');
+    assert.strictEqual(
+        element.getCheckRunStatusDesc({status: 'SCHEDULED'}),
+        'Scheduling the android-binary-size tryjob');
+    assert.strictEqual(
+        element.getCheckRunStatusDesc({status: 'STARTED'}),
+        'Waiting for the android-binary-size trybot run to complete');
+    assert.strictEqual(
+        element.getCheckRunStatusDesc({status: 'FAILURE'}),
+        '');
+  });
+
+  test('getCheckResultCategory', () => {
+    assert.strictEqual(
+        element.getCheckResultCategory({status: 'SUCCESS'}, [{allowed: true}]),
+        'INFO');
+    assert.strictEqual(
+        element.getCheckResultCategory({status: 'SUCCESS'}, [{allowed: false}]),
+        'WARNING');
+    assert.strictEqual(
+        element.getCheckResultCategory({status: 'FAILURE'}, [{allowed: true}]), 
+        'INFO');
+    assert.strictEqual(
+        element.getCheckResultCategory({status: 'FAILURE'}, [{allowed: false}]),
+        'ERROR');
+  });
+
+  test('fetchChecks formats extra CheckResult links', async () => {
+    element._binarySizeInfo = {
+      extras: [
+        {text: 'APK Breakdown', url: 'http://apk.org'},
+        {text: 'Extra Link', url: 'http://extra.org'},
+      ],
+      listings: [],
+      build: {},
+      numBuilds: 1,
+      loaded: true,
+    };
+    element.revision = {_number: 1};
+    const res = await element.fetchChecks({changeNumber: 1, patchsetNumber: 1});
+    const {links} = res.runs[0].results[0];
+    assert.deepEqual(links, [
+      {
+        url: 'http://apk.org',
+        tooltip: 'APK Breakdown',
+        primary: true,
+        icon: 'file_present',
+      },
+      {
+        url: 'http://extra.org',
+        tooltip: 'Extra Link',
+        primary: false,
+        icon: 'external',
+      },
+    ]);
   });
 });
 </script>
