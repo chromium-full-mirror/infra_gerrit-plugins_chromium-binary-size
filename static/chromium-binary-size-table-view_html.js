@@ -2,13 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// TODO(gavinmak): Style row based on status.
-
 export const chromiumBinarySizeTableViewTemplate = Polymer.html`
   <style>
     table {
       border-collapse: collapse;
-      width: 100%;
     }
     th {
       padding: .2em .4em;
@@ -26,6 +23,12 @@ export const chromiumBinarySizeTableViewTemplate = Polymer.html`
     }
     a:hover {
       text-decoration: underline;
+    }
+    td.green {
+      color: var(--positive-green-text-color);
+    }
+    td.red {
+      color: var(--negative-red-text-color);
     }
   </style>
   <table>
@@ -45,7 +48,7 @@ export const chromiumBinarySizeTableViewTemplate = Polymer.html`
             [[row.name]]
           </template>
         </td>
-        <td>[[row.delta]]</td>
+        <td class\$="[[row.css_class]]">[[row.delta]]</td>
         <td>[[row.limit]]</td>
         <td>[[_status(row)]]</td>
       </tr>
