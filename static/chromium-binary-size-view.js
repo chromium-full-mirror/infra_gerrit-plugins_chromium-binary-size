@@ -51,6 +51,7 @@ class ChromiumBinarySizeView extends Polymer.Element {
         type: Boolean,
         value: false,
       },
+      _enabledCache: Object,
       _lastUpdatedString: String,
       _needsUpdate: {
         type: Boolean,
@@ -75,6 +76,24 @@ class ChromiumBinarySizeView extends Polymer.Element {
   constructor() {
     super();
     this._boundHandleVisibilityChange = this._handleVisibilityChange.bind(this);
+    this._enabledCache = new Map();
+  }
+
+  async isEnabled(project) {
+    const path = `/projects/${encodeURIComponent(project)}/` +
+        `${encodeURIComponent(this.plugin.getPluginName())}~config`;
+    if (!this._enabledCache.has(path)) {
+      let config = {};
+      try {
+        config = await this.plugin.restApi().get(path);
+      } catch (e) {
+        console.log(
+            `The chromium-binary-size plugin is not enabled on ${project}`);
+      }
+      this._enabledCache.set(path, config);
+    }
+    this._pluginConfig = this._enabledCache.get(path);
+    return Object.keys(this._pluginConfig).length > 0;
   }
 
   async ready() {
@@ -84,17 +103,7 @@ class ChromiumBinarySizeView extends Polymer.Element {
       return;
     }
 
-    try {
-      this._pluginConfig = await this.plugin.restApi().get(
-          `/projects/${encodeURIComponent(this.change.project)}/` +
-          `${encodeURIComponent(this.plugin.getPluginName())}~config`);
-      this._enabled = true;
-    } catch (e) {
-      console.log('The chromium-binary-size plugin is not enabled on ' +
-          this.change.project);
-      this._enabled = false;
-      return;
-    }
+    this._enabled = await this.isEnabled(this.change.project);
 
     if (!window.buildbucket) {
       console.error('The "chromium-binary-size" plugin requires the' +
@@ -154,52 +163,89 @@ class ChromiumBinarySizeView extends Polymer.Element {
    *
    * For more information on the Checks API:
    *   https://gerrit.googlesource.com/gerrit/+/refs/heads/master/polygerrit-ui/app/api/checks.ts
-   *
-   * TODO(gavinmak): The code only returns CheckResults if _binarySizeInfo is
-   * already available. Add support for CheckRun actions so users can launch a
-   * tryjob through Checks.
    */
   async fetchChecks(changeData) {
-    const {changeNumber, patchsetNumber} = changeData;
-    let binarySizeInfo;
-
-    // Gerrit's "Files" and "Checks" tab have two different patchset selectors.
-    // The patchset in "Files" is revision._number while in "Checks", is
-    // changeData.patchsetNumber.
-    if (patchsetNumber === this.revision?._number) {
-      binarySizeInfo = this._binarySizeInfo;
-    } else {
-      // If the patchsets aren't equal, fetch the correct builds.
-      // TODO(gavinmak): Clean up code and dedupe from _refresh().
-      const patchsets = this._computeValidPatchNums(
-          this.change, patchsetNumber);
-      const builds = (await this._tryGetNewBinarySizeBuilds(patchsets) || []);
-      binarySizeInfo = this._processBinarySizeBuilds(builds, false);
-    }
-
-    // If there is no binary size info yet, return no runs or results.
-    if (!binarySizeInfo?.loaded) {
+    const {changeNumber, patchsetNumber, repo, changeInfo} = changeData;
+    // When switching between changes on different repos, Checks can display
+    // Chromium Binary Size Checks results on repos that don't have the plugin
+    // enabled. This double-checks that a change has the plugin enabled.
+    if (!await this.isEnabled(repo)) {
       return {responseCode: 'OK'};
     }
 
-    const {extras, listings, build, numBuilds} = binarySizeInfo;
+    // TODO(gavinmak): Clean up code and dedupe from _refresh().
+    const patchsets = this._computeValidPatchNums(changeInfo, patchsetNumber);
+    const builds = await this._tryGetNewBinarySizeBuilds(patchsets) || [];
+    builds.sort((a, b) => -window.buildbucket.compareBuildIds(a.id, b.id));
+    const binarySizeInfo = this._processBinarySizeBuilds(builds, false) || {};
+    const {extras=[], listings=[], build=builds[0] || {}} = binarySizeInfo;
+
     const runId = `//${BUILDBUCKET_HOST}/chromium-binary-size-plugin`;
-    const resultLinks = extras.map(e => {
-      const isApkBreakdown = e.text === 'APK Breakdown';
-      return {
-        url: e.url,
-        tooltip: e.text,
-        primary: isApkBreakdown,
-        icon: isApkBreakdown ? 'file_present' : 'external',
-      };
-    });
+    const resultId = `${runId}/result`;
+    const summary = 'Chromium Binary Size Changes';
+    const category = this.getCheckResultCategory(build, listings);
+    const results = [];
+    // Create a CheckResult from binarySizeInfo if possible. Otherwise, use the
+    // most recent build.
+    if (binarySizeInfo?.loaded) {
+      const links = extras.map(e => {
+        const isApkBreakdown = e.text === 'APK Breakdown';
+        return {
+          url: e.url,
+          tooltip: e.text,
+          primary: isApkBreakdown,
+          icon: isApkBreakdown ? 'file_present' : 'external',
+        };
+      });
+
+      results.push({
+        externalId: resultId,
+        category,
+        summary,
+        message: 'Expand to view the changes in binary size and other checks',
+        links,
+      });
+    } else if (['SCHEDULED', 'STARTED', 'CANCELED'].includes(build.status)) {
+      let message;
+      const builder = this._pluginConfig.tryBuilder;
+      if (build.status === 'CANCELED') {
+        message = `Run the ${builder} trybot on the latest patchset to see ` +
+            'your binary size impact.';
+      } else if (build.status === 'SCHEDULED') {
+        message = `Scheduling the ${builder} tryjob.`;
+      } else if (build.status === 'STARTED') {
+        message = `Waiting for ${builder} trybot run to complete.`;
+      }
+
+      results.push({
+        externalId: resultId,
+        category,
+        summary,
+        message,
+      });
+    }
+
+    const actions = [];
+    if (!build?.status || build.status === 'CANCELED') {
+      actions.push({
+        name: 'Run',
+        tooltip: `Start a new ${this._pluginConfig.tryBuilder} run on the ` +
+            'latest patchset.',
+        primary: true,
+        callback: async () => {
+          // TODO(gavinmak): Fix error handling.
+          await this.scheduleBuild(Object.keys(changeInfo.revisions).length);
+          this.plugin.checks().announceUpdate();
+        },
+      });
+    }
 
     return {
       responseCode: 'OK',
       runs: [{
         change: changeNumber,
         patchset: patchsetNumber,
-        attempt: numBuilds,
+        attempt: builds.length || undefined,
         externalId: runId,
         checkName: 'Chromium Binary Size',
         checkDescription: 'This run shows how your change and patchset ' +
@@ -208,13 +254,8 @@ class ChromiumBinarySizeView extends Polymer.Element {
             'docs/speed/binary_size/android_binary_size_trybot.md',
         status: this.getCheckRunStatus(build),
         statusDescription: this.getCheckRunStatusDesc(build),
-        results: [{
-          externalId: `${runId}/result`,
-          category: this.getCheckResultCategory(build, listings),
-          summary: 'Chromium Binary Size Changes',
-          message: 'Expand to view the changes in binary size and other checks',
-          links: resultLinks,
-        }],
+        results,
+        actions,
         [DATA_SYMBOL]: {listings},
       }],
     };
@@ -307,7 +348,6 @@ class ChromiumBinarySizeView extends Polymer.Element {
     const binarySizeInfo = {
       build,
       loaded: true,
-      numBuilds: builds.length,
       ...build['output']['properties']['binary_size_plugin'],
     };
 
@@ -390,6 +430,7 @@ class ChromiumBinarySizeView extends Polymer.Element {
 
     const bb = new window.buildbucket.BuildbucketV2Client(BUILDBUCKET_HOST);
     const fields = [
+      'id',
       'status',
       'startTime',
       'endTime',
@@ -491,7 +532,7 @@ class ChromiumBinarySizeView extends Polymer.Element {
     return patchNums;
   }
 
-  async scheduleBuild() {
+  async scheduleBuild(patchset) {
     if (this._waitingForTrybotSchedule) {
       return;
     }
@@ -508,7 +549,7 @@ class ChromiumBinarySizeView extends Polymer.Element {
           host: this._pluginConfig.gerritHost,
           change: this.change._number,
           project: this.change.project,
-          patchset: this.revision._number,
+          patchset: patchset || this.revision._number,
         }],
       });
       this._waitingForTrybotSchedule = true;

@@ -9,6 +9,11 @@ export const DATA_SYMBOL = Symbol('chromiumBinarySizeData');
 export async function installChecksResult(element) {
   if (!element?.run) return;
 
+  const {listings} = element.run[DATA_SYMBOL];
+  if (!listings?.length) {
+    return;
+  }
+
   // Remove message div with raw message string.
   const {host} = element.getRootNode();
   const messageElement = host.querySelector('.message');
@@ -16,6 +21,10 @@ export async function installChecksResult(element) {
     host.removeChild(messageElement);
   }
 
-  const {listings} = element.run[DATA_SYMBOL];
+  // Remove any previous tables.
+  while (element.firstChild) {
+    element.removeChild(element.firstChild);
+  }
+
   element.appendChild(new ChromiumBinarySizeTableView(listings));
 }

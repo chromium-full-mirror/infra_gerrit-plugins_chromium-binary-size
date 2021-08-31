@@ -20,6 +20,7 @@ found in the LICENSE file.
 import './common-test-setup.js';
 import {BuildbucketV2Client} from './common-test-setup.js';
 import '../static/chromium-binary-size-view.js';
+import {DATA_SYMBOL} from '../static/checks-result.js';
 
 suite('chromium-binary-size-view basic tests', () => {
   let element;
@@ -64,6 +65,19 @@ suite('chromium-binary-size-view basic tests', () => {
     });
     window.buildbucket = {
       getAccessToken: async () => null,
+      compareBuildIds: (a, b) => {
+        const d = b.length - a.length;
+        if (d != 0) {
+          return d;
+        }
+        if (a > b) {
+          return -1;
+        }
+        if (a < b) {
+          return 1;
+        }
+        return 0;
+      },
       BuildbucketV2Client,
     };
     sandbox = sinon.sandbox.create();
@@ -221,19 +235,60 @@ suite('chromium-binary-size-view basic tests', () => {
         'ERROR');
   });
 
+  test('isEnabled caches results', async () => {
+    const stub = sandbox.stub();
+    stub.withArgs('/projects/foo/chromium-binary-size~config').returns(Promise.resolve({a: 1}));
+    stub.withArgs('/projects/bar/chromium-binary-size~config').returns(Promise.reject());
+    element.plugin.restApi = () => ({
+      get: stub,
+    });
+    assert.strictEqual(await element.isEnabled('foo'), true);
+    assert.strictEqual(await element.isEnabled('bar'), false);
+    sinon.assert.calledTwice(stub);
+
+    // Results should be cached.
+    assert.strictEqual(await element.isEnabled('foo'), true);
+    assert.strictEqual(await element.isEnabled('bar'), false);
+    sinon.assert.calledTwice(stub);
+  });
+
   test('fetchChecks formats extra CheckResult links', async () => {
-    element._binarySizeInfo = {
-      extras: [
-        {text: 'APK Breakdown', url: 'http://apk.org'},
-        {text: 'Extra Link', url: 'http://extra.org'},
-      ],
-      listings: [],
-      build: {},
-      numBuilds: 1,
-      loaded: true,
-    };
-    element.revision = {_number: 1};
-    const res = await element.fetchChecks({changeNumber: 1, patchsetNumber: 1});
+    sandbox.stub(element, 'isEnabled').returns(true);
+    const searchBuilds = sandbox.stub(
+        BuildbucketV2Client.prototype, 'searchBuilds').returns({
+      builds: [
+        {
+          id: '1',
+          status: 'SUCCESS',
+          endTime: '2019-05-29T23:41:18.637847Z',
+          output: {
+            properties: {
+              binary_size_plugin: {
+                extras: [
+                  {text: 'APK Breakdown', url: 'http://apk.org'},
+                  {text: 'Extra Link', url: 'http://extra.org'},
+                ],
+                listings: [],
+              }
+            }
+          }
+        }
+      ]
+    });
+    const res = await element.fetchChecks({
+      changeNumber: 1,
+      patchsetNumber: 1,
+      repo: 'repo',
+      changeInfo: {
+        project: 'project-foo',
+        _number: 1,
+        revisions: {
+          'deadbeef': {
+            _number: 1,
+          },
+        },
+      },
+    });
     const {links} = res.runs[0].results[0];
     assert.deepEqual(links, [
       {
@@ -249,6 +304,228 @@ suite('chromium-binary-size-view basic tests', () => {
         icon: 'external',
       },
     ]);
+  });
+
+  test('fetchChecks uses the latest build with output', async () => {
+    sandbox.stub(element, 'isEnabled').returns(true);
+    const searchBuilds = sandbox.stub(
+        BuildbucketV2Client.prototype, 'searchBuilds').returns({
+      builds: [
+        {
+          id: '3',
+          status: 'SUCCESS',
+          endTime: '2019-05-29T23:41:18.637847Z',
+          output: {
+            properties: {
+              binary_size_plugin: {
+                extras: [],
+                listings: [
+                  {name: 'foo', allowed: true},
+                ],
+              }
+            }
+          }
+        },
+        {
+          id: '2',
+          status: 'SUCCESS',
+          endTime: '2019-06-29T23:41:18.637847Z',
+          output: {
+            properties: {
+              binary_size_plugin: {
+                extras: [],
+                listings: [
+                  {name: 'bar', allowed: true},
+                ],
+              }
+            }
+          }
+        },
+        {
+          id: '1',
+          status: 'CANCELED',
+          endTime: '2019-06-29T23:41:18.637847Z',
+          output: {
+            properties: {},
+          }
+        }
+      ]
+    });
+    const res = await element.fetchChecks({
+      changeNumber: 1,
+      patchsetNumber: 1,
+      repo: 'repo',
+      changeInfo: {
+        project: 'project-foo',
+        _number: 1,
+        revisions: {
+          'deadbeef': {
+            _number: 1,
+          },
+        },
+      },
+    });
+    const run = res.runs[0];
+    assert.deepEqual(run[DATA_SYMBOL].listings, [{name: 'bar', allowed: true}]);
+  });
+
+  test('fetchChecks creates CheckResults', async () => {
+    sandbox.stub(element, 'isEnabled').returns(true);
+    const searchBuilds = sandbox.stub(
+        BuildbucketV2Client.prototype, 'searchBuilds');
+    const changeData = {
+      changeNumber: 1,
+      patchsetNumber: 1,
+      repo: 'repo',
+      changeInfo: {
+        project: 'project-foo',
+        _number: 1,
+        revisions: {
+          'deadbeef': {
+            _number: 1,
+          },
+        },
+      },
+    };
+    let res;
+    let run;
+
+    // android-binary-size trybot has not been run.
+    searchBuilds.returns(Promise.resolve({builds: []}));
+    res = await element.fetchChecks(changeData);
+    run = res.runs[0];
+    assert.strictEqual(run.status, 'RUNNABLE');
+    assert.strictEqual(run.results.length, 0);
+    assert.strictEqual(run.actions[0].name, 'Run');
+    assert.deepEqual(run[DATA_SYMBOL].listings, []);
+
+    // android-binary-size trybot has been scheduled.
+    searchBuilds.returns(Promise.resolve({builds: [
+      {status: 'SCHEDULED'},
+    ]}));
+    res = await element.fetchChecks(changeData);
+    run = res.runs[0];
+    assert.strictEqual(run.status, 'RUNNING');
+    assert.strictEqual(run.results.length, 1);
+    assert.strictEqual(run.results[0].category, 'INFO');
+    assert.strictEqual(
+        run.results[0].message,
+        'Scheduling the android-binary-size tryjob.');
+    assert.strictEqual(run.actions.length, 0);
+    assert.deepEqual(run[DATA_SYMBOL].listings, []);
+
+    // android-binary-size trybot has started.
+    searchBuilds.returns(Promise.resolve({builds: [
+      {status: 'STARTED'},
+    ]}));
+    res = await element.fetchChecks(changeData);
+    run = res.runs[0];
+    assert.strictEqual(run.status, 'RUNNING');
+    assert.strictEqual(run.results.length, 1);
+    assert.strictEqual(run.results[0].category, 'INFO');
+    assert.strictEqual(
+        run.results[0].message,
+        'Waiting for android-binary-size trybot run to complete.');
+    assert.strictEqual(run.actions.length, 0);
+    assert.deepEqual(run[DATA_SYMBOL].listings, []);
+
+    // android-binary-size trybot and its checks were successful.
+    const allowedListings = [
+      {name: 'foo', allowed: true},
+      {name: 'bar', allowed: true},
+    ];
+    searchBuilds.returns(Promise.resolve({builds: [
+      {
+        id: '1',
+        status: 'SUCCESS',
+        endTime: '2019-05-29T23:41:18.637847Z',
+        output: {
+          properties: {
+            binary_size_plugin: {
+              listings: allowedListings,
+            },
+          },
+        },
+      },
+    ]}));
+    res = await element.fetchChecks(changeData);
+    run = res.runs[0];
+    assert.strictEqual(run.status, 'COMPLETED');
+    assert.strictEqual(run.results.length, 1);
+    assert.strictEqual(run.results[0].category, 'INFO');
+    assert.strictEqual(run.actions.length, 0);
+    assert.deepEqual(run[DATA_SYMBOL].listings, allowedListings);
+
+    // android-binary-size trybot but its checks were not successful.
+    const unallowedListings = [
+      {name: 'foo', allowed: true},
+      {name: 'bar', allowed: false},
+    ];
+    searchBuilds.returns(Promise.resolve({builds: [
+      {
+        id: '1',
+        status: 'SUCCESS',
+        endTime: '2019-05-29T23:41:18.637847Z',
+        output: {
+          properties: {
+            binary_size_plugin: {
+              listings: unallowedListings,
+            },
+          },
+        },
+      },
+    ]}));
+    res = await element.fetchChecks(changeData);
+    run = res.runs[0];
+    assert.strictEqual(run.status, 'COMPLETED');
+    assert.strictEqual(run.results.length, 1);
+    assert.strictEqual(run.results[0].category, 'WARNING');
+    assert.strictEqual(run.actions.length, 0);
+    assert.deepEqual(run[DATA_SYMBOL].listings, unallowedListings);
+
+    // android-binary-size trybot was unsuccessful.
+    searchBuilds.returns(Promise.resolve({builds: [
+      {
+        id: '1',
+        status: 'FAILURE',
+        endTime: '2019-05-29T23:41:18.637847Z',
+        output: {
+          properties: {
+            binary_size_plugin: {
+              listings: unallowedListings,
+            },
+          },
+        },
+      },
+    ]}));
+    res = await element.fetchChecks(changeData);
+    run = res.runs[0];
+    assert.strictEqual(run.status, 'COMPLETED');
+    assert.strictEqual(run.results.length, 1);
+    assert.strictEqual(run.results[0].category, 'ERROR');
+    assert.strictEqual(run.actions.length, 0);
+    assert.deepEqual(run[DATA_SYMBOL].listings, unallowedListings);
+
+    // android-binary-size trybot was canceled.
+    searchBuilds.returns(Promise.resolve({builds: [
+      {
+        id: '1',
+        status: 'CANCELED',
+        endTime: '2019-05-29T23:41:18.637847Z',
+      },
+    ]}));
+    res = await element.fetchChecks(changeData);
+    run = res.runs[0];
+    assert.strictEqual(run.status, 'COMPLETED');
+    assert.strictEqual(run.results.length, 1);
+    assert.strictEqual(run.results[0].category, 'INFO');
+    assert.strictEqual(
+        run.results[0].message,
+        'Run the android-binary-size trybot on the latest patchset to see ' +
+            'your binary size impact.',
+        );
+    assert.strictEqual(run.actions[0].name, 'Run');
+    assert.deepEqual(run[DATA_SYMBOL].listings, []);
   });
 });
 </script>
