@@ -117,9 +117,8 @@ suite('chromium-binary-size-view basic tests', () => {
   });
 
   test('_tryjobPatchPredicates', () => {
-    element.change = {_number: 42};
     element._pluginConfig = {gerritHost: 'chromium-review.googlesource.com'};
-    assert.deepEqual(element._tryjobPatchPredicates([2, 3, 4]), [
+    assert.deepEqual(element._tryjobPatchPredicates({_number: 42}, [2, 3, 4]), [
         {
           host: 'chromium-review.googlesource.com',
           change: 42,
@@ -193,6 +192,44 @@ suite('chromium-binary-size-view basic tests', () => {
       });
     });
   });
+
+  test('ready registers checks only once', async () => {
+      class fakeCache {
+        constructor() {
+          return 'asdf';
+        }
+        read() {
+          return {optedIn: true};
+        }
+      };
+      Object.assign(window.buildbucket, {
+        CacheObject: fakeCache,
+        CHECKS_OPT_CACHE_KEY: 'foo',
+      });
+
+      const stub = sandbox.stub();
+      Object.assign(element, {
+        plugin: {
+          getPluginName: () => 'binary-size',
+          restApi: () => ({
+            get: () => Promise.resolve({_account_id: 123}),
+          }),
+          checks: () => ({register: stub}),
+          hook: () => ({onAttached: () => {}}),
+        },
+      });
+
+      // Wrap in try/catch since we're only testing checks registration.
+      try {
+        await element.ready();
+      } catch (e) {}
+      sinon.assert.calledOnce(stub);
+
+      try {
+        await element.ready();
+      } catch (e) {}
+      sinon.assert.calledOnce(stub);
+    });
 
   test('getCheckRunStatus', () => {
     assert.strictEqual(

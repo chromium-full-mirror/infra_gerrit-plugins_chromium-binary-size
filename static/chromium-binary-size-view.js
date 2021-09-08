@@ -5,13 +5,15 @@
 import {
     chromiumBinarySizeViewTemplate,
   } from './chromium-binary-size-view_html.js';
+import {installChecksResult, DATA_SYMBOL} from './checks-result.js';
 
 const DEFAULT_UPDATE_INTERVAL_MS = 1000 * 15;
 const MAX_UPDATE_INTERVAL_MS = 1000 * 60 * 5;
 
 const BUILDBUCKET_HOST = 'cr-buildbucket.appspot.com';
 
-import {installChecksResult, DATA_SYMBOL} from './checks-result.js';
+// This is used to prevent the plugin from registering on Checks multiple times.
+let checksRegistered = false;
 
 class ChromiumBinarySizeView extends Polymer.Element {
   /** @returns {string} name of the component */
@@ -113,7 +115,8 @@ class ChromiumBinarySizeView extends Polymer.Element {
 
     const {CacheObject, CHECKS_OPT_CACHE_KEY} = window.buildbucket;
     const optCache = new CacheObject(CHECKS_OPT_CACHE_KEY);
-    if (optCache.read().optedIn) {
+    if (optCache.read().optedIn && !checksRegistered) {
+      checksRegistered = true;
       this.plugin.checks().register({
         fetch: (changeData) => this.fetchChecks(changeData),
       });
@@ -175,7 +178,8 @@ class ChromiumBinarySizeView extends Polymer.Element {
 
     // TODO(gavinmak): Clean up code and dedupe from _refresh().
     const patchsets = this._computeValidPatchNums(changeInfo, patchsetNumber);
-    const builds = await this._tryGetNewBinarySizeBuilds(patchsets) || [];
+    const builds =
+        await this._tryGetNewBinarySizeBuilds(changeInfo, patchsets) || [];
     builds.sort((a, b) => -window.buildbucket.compareBuildIds(a.id, b.id));
     const binarySizeInfo = this._processBinarySizeBuilds(builds, false) || {};
     const {extras=[], listings=[], build=builds[0] || {}} = binarySizeInfo;
@@ -314,12 +318,14 @@ class ChromiumBinarySizeView extends Polymer.Element {
     }
 
     const newBinarySizeBuilds = await this._tryGetNewBinarySizeBuilds(
-        this._validPatchNums);
+        this.change, this._validPatchNums);
     if (newBinarySizeBuilds != null) {
       this._binarySizeInfo = this._processBinarySizeBuilds(
           newBinarySizeBuilds, true);
       this._updateIntervalMs = DEFAULT_UPDATE_INTERVAL_MS;
-      this.plugin.checks().announceUpdate();
+      if (checksRegistered) {
+        this.plugin.checks().announceUpdate();
+      }
     } else {
       this._lastUpdatedString = this._getLastUpdatedString();
       this._updateIntervalMs = Math.min(
@@ -365,11 +371,11 @@ class ChromiumBinarySizeView extends Polymer.Element {
    * Fetch builds from Buildbucket and return information about binary size,
    * or null in case of failure.
    */
-  async _tryGetNewBinarySizeBuilds(patchsets) {
+  async _tryGetNewBinarySizeBuilds(change, patchsets) {
     try {
       return await this._getBuilds(
           this._pluginConfig.tryBucket,
-          this._tryjobPatchPredicates(patchsets));
+          this._tryjobPatchPredicates(change, patchsets));
     } catch (e) {
       console.warn('Buildbucket search failed', e);
       return null;
@@ -408,13 +414,11 @@ class ChromiumBinarySizeView extends Polymer.Element {
    * Return the Buildbucket search predicates corresponding to the provided
    * patchset numbers.
    */
-  _tryjobPatchPredicates(validPatchNums) {
+  _tryjobPatchPredicates(change, validPatchNums) {
     return validPatchNums.map(patchNum => {
-      const host = this._pluginConfig.gerritHost;
-      const changeNum = this.change._number;
       return {
-        host,
-        change: changeNum,
+        host: this._pluginConfig.gerritHost,
+        change: change._number,
         patchset: patchNum,
       };
     });
