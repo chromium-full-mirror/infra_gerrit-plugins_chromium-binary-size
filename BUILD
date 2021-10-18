@@ -1,50 +1,38 @@
-load("@npm//@bazel/rollup:index.bzl", "rollup_bundle")
-load("//tools/bzl:js.bzl", "polygerrit_plugin")
-load("//tools/bzl:plugin.bzl", "gerrit_plugin")
+load("@rules_java//java:defs.bzl", "java_library")
 load("//tools/bzl:junit.bzl", "junit_tests")
+load(
+    "//tools/bzl:plugin.bzl",
+    "PLUGIN_DEPS",
+    "PLUGIN_TEST_DEPS",
+    "gerrit_plugin",
+)
 
 gerrit_plugin(
     name = "chromium-binary-size",
-    srcs = glob(["java/**/*.java"]),
+    srcs = glob(["src/main/java/**/*.java"]),
     manifest_entries = [
         "Gerrit-PluginName: chromium-binary-size",
         "Gerrit-Module: com.googlesource.chromium.plugins.chromiumbinarysize.ChromiumBinarySizeModule",
         "Implementation-Title: Chromium Binary Size plugin",
     ],
-    resources = glob(["static/**/*"]),
-)
-
-polygerrit_plugin(
-    name = "chromium-binary-size-resources",
-    app = "chromium-binary-size-bundle.js",
-    plugin_name = "chromium-binary-size",
-)
-
-rollup_bundle(
-    name = "chromium-binary-size-bundle",
-    srcs = glob(["static/*.js"]),
-    entry_point = "static/chromium-binary-size.js",
-    format = "iife",
-    rollup_bin = "//tools/node_tools:rollup-bin",
-    sourcemap = "hidden",
-    deps = [
-        "@tools_npm//rollup-plugin-node-resolve",
-    ],
+    resources = glob(["web/**/*"]),
 )
 
 junit_tests(
-    name = "chromium_binary_size_tests",
+    name = "chromium-binary-size_tests",
     size = "large",
-    srcs = glob(["test/javatests/**/*IT.java"]),
-    tags = [
-        "chromium-binary-size-plugin",
-    ],
-    deps = [
+    srcs = glob(["src/test/java/**/*.java"]),
+    tags = ["chromium-binary-size-plugin"],
+    deps = [":chromium-binary-size__plugin_test_deps"],
+)
+
+java_library(
+    name = "chromium-binary-size__plugin_test_deps",
+    testonly = 1,
+    visibility = ["//visibility:public"],
+    exports = PLUGIN_DEPS + PLUGIN_TEST_DEPS + [
         ":chromium-binary-size__plugin",
-        "//java/com/google/gerrit/acceptance:lib",
-        "//lib/bouncycastle:bcprov",
-        "//lib/commons:lang3",
-        "//lib/jetty:http",
-        "//plugins:plugin-lib",
+        "@commons-io//jar",
+        "@mockito//jar",
     ],
 )

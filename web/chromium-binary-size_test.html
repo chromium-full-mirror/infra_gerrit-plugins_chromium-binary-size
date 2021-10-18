@@ -5,24 +5,19 @@ Use of this source code is governed by a BSD-style license that can be
 found in the LICENSE file.
 -->
 <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes">
-<title>chromium-binary-size-view</title>
-
-<script src="../node_modules/@webcomponents/webcomponentsjs/webcomponents-loader.js"></script>
-<script src="../node_modules/web-component-tester/browser.js"></script>
+<title>chromium-binary-size</title>
 
 <test-fixture id="basic">
   <template>
-    <chromium-binary-size-view></chromium-binary-size-view>
+    <chromium-binary-size></chromium-binary-size>
   </template>
 </test-fixture>
 
 <script type="module">
-import './common-test-setup.js';
-import {BuildbucketV2Client} from './common-test-setup.js';
-import '../static/chromium-binary-size-view.js';
-import {DATA_SYMBOL} from '../static/checks-result.js';
+import './chromium-binary-size.js';
+import {DATA_SYMBOL} from './checks-result.js';
 
-suite('chromium-binary-size-view basic tests', () => {
+suite('chromium-binary-size basic tests', () => {
   let element;
   let sandbox;
 

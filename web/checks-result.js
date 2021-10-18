@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {ChromiumBinarySizeTableView} from './chromium-binary-size-table-view.js';
+import {ChromiumBinarySizeTable} from './chromium-binary-size-table.js';
 
 export const DATA_SYMBOL = Symbol('chromiumBinarySizeData');
 
@@ -26,5 +26,5 @@ export async function installChecksResult(element) {
     element.removeChild(element.firstChild);
   }
 
-  element.appendChild(new ChromiumBinarySizeTableView(listings));
+  element.appendChild(new ChromiumBinarySizeTable(listings));
 }

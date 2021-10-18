@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import './chromium-binary-size-view.js';
+import './chromium-binary-size.js';
 
 const platformJsElement = document.createElement('script');
 platformJsElement.setAttribute(
@@ -11,5 +11,5 @@ document.head.appendChild(platformJsElement);
 
 Gerrit.install(plugin => {
   plugin.registerCustomComponent(
-      'change-view-integration', 'chromium-binary-size-view');
+      'change-view-integration', 'chromium-binary-size');
 });
