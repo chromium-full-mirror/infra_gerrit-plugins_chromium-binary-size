@@ -2,11 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {ChromiumBinarySizeTable} from './chromium-binary-size-table.js';
+import {ChromiumBinarySizeTable} from './chromium-binary-size-table';
 
 export const DATA_SYMBOL = Symbol('chromiumBinarySizeData');
 
-export async function installChecksResult(element) {
+export async function installChecksResult(element: any) {
   if (!element?.run) return;
 
   const {listings} = element.run[DATA_SYMBOL];

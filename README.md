@@ -31,25 +31,35 @@ There is no caching period or need to restart the server.
 
 ## Development
 
-```bash
-git clone --recursive https://gerrit.googlesource.com/gerrit
-cd gerrit/plugins
+### Setup
 
-git clone https://chromium.googlesource.com/infra/gerrit-plugins/chromium-binary-size
-cd chromium-binary-size
-```
+This plugin must be placed inside the Gerrit plugins directory:
 
-### Run the polygerrit-ui server against live data
+    git clone --recurse-submodules https://gerrit.googlesource.com/gerrit
+    cd gerrit/plugins
+    git clone https://chromium.googlesource.com/infra/gerrit-plugins/chromium-binary-size
 
-Use the script `run-with-prod-data.sh` (based on `polygerrit-ui/run-server.sh`).
-You may change some paths by setting environment variables, for example:
+### Web Plugin Development
 
-```bash
-GERRIT_DIR="$HOME/gerrit" ./run-with-prod-data.sh
-```
+For running Java unit tests execute:
 
-### Testing
+    bazel test --test_output=all //plugins/chromium-binary-size:chromium-binary-size_tests
 
-```bash
-npm run wct-test
-```
+For running TypeScript unit tests execute:
+
+    bazel test --test_output=all //plugins/chromium-binary-size/web:karma_test
+
+For checking or fixing eslint formatter problems run:
+
+    bazel test //plugins/chromium-binary-size/web:lint_test
+    bazel run //plugins/chromium-binary-size/web:lint_bin -- --fix "$(pwd)/plugins/chromium-binary-size/web"
+
+For testing the plugin with
+[Gerrit FE Dev Helper](https://gerrit.googlesource.com/gerrit-fe-dev-helper/)
+build the JavaScript bundle and copy it to the `plugins/chromium-binary-size` folder:
+
+    bazel build //plugins/chromium-binary-size/web:chromium-binary-size
+    cp -f bazel-bin/plugins/chromium-binary-size/web/chromium-binary-size.js plugins/chromium-binary-size
+
+and let the Dev Helper redirect from `.+/plugins/chromium-binary-size/static/chromium-binary-size.js` to
+`http://localhost:8081/plugins_/plugins/chromium-binary-size.js`.
