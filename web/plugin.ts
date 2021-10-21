@@ -5,10 +5,6 @@
 import '@gerritcodereview/typescript-api/gerrit';
 import './chromium-binary-size';
 
-const platformJsElement = document.createElement('script');
-platformJsElement.setAttribute('src', 'https://apis.google.com/js/platform.js');
-document.head.appendChild(platformJsElement);
-
 window.Gerrit.install(plugin => {
   plugin.registerCustomComponent(
     'change-view-integration',
