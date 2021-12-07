@@ -532,6 +532,30 @@ suite('chromium-binary-size basic tests', () => {
     assert.strictEqual(run.actions!.length, 0);
     assert.deepEqual((run as any)[DATA_SYMBOL].listings, []);
 
+    // android-binary-size trybot but did not produce useful results.
+    stubSearch(
+      Promise.resolve({
+        builds: [
+          {
+            id: '1',
+            status: 'SUCCESS',
+            endTime: '2019-05-29T23:41:18.637847Z',
+            output: {
+              properties: {
+                binary_size_plugin: {
+                  listings: [],
+                },
+              },
+            },
+          },
+        ],
+      })
+    );
+    res = await element.fetchChecks(changeData);
+    run = res.runs![0];
+    assert.strictEqual(run.status, RunStatus.COMPLETED);
+    assert.strictEqual(run.results!.length, 0);
+
     // android-binary-size trybot and its checks were successful.
     const allowedListings = [
       {name: 'foo', allowed: true},

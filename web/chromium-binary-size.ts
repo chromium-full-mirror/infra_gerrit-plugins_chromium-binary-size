@@ -24,6 +24,8 @@ import {css, html, LitElement, PropertyValues} from 'lit';
 import {customElement, property, state} from 'lit/decorators';
 import {installChecksResult, DATA_SYMBOL} from './checks-result.js';
 
+// TODO(gavinmak): Fix linter issues.
+
 const DEFAULT_UPDATE_INTERVAL_MS = 1000 * 15;
 const MAX_UPDATE_INTERVAL_MS = 1000 * 60 * 5;
 
@@ -412,9 +414,9 @@ export class ChromiumBinarySize extends LitElement {
     const summary = 'Chromium Binary Size Changes';
     const category = this.getCheckResultCategory(build, listings);
     const results: CheckResult[] = [];
-    // Create a CheckResult from binarySizeInfo if possible. Otherwise, use the
-    // most recent build.
-    if (binarySizeInfo?.loaded) {
+    // Create a CheckResult from binarySizeInfo if possible. Otherwise, create
+    // one based on builder status if applicable.
+    if (binarySizeInfo?.loaded && (listings.length || extras.length)) {
       const links = extras.map((e: ChromiumBinarySizeExtra) => {
         const isApkBreakdown = e.text === 'APK Breakdown';
         return {
