@@ -502,13 +502,18 @@ export class ChromiumBinarySize extends LitElement {
    * Returns the CheckRun status based on the build.
    */
   getCheckRunStatus(build: BuildbucketBuild): RunStatus {
-    if (!build?.status) {
-      return RunStatus.RUNNABLE;
+    switch (build?.status) {
+      case undefined:
+        return RunStatus.RUNNABLE;
+      case 'SCHEDULED':
+        // TODO(gavinmak): Replace with RunStatus.SCHEDULED once
+        //   @gerritcodereview/typescript-api is updated.
+        return 'SCHEDULED' as RunStatus;
+      case 'STARTED':
+        return RunStatus.RUNNING;
+      default:
+        return RunStatus.COMPLETED;
     }
-    if (['SCHEDULED', 'STARTED'].includes(build.status)) {
-      return RunStatus.RUNNING;
-    }
-    return RunStatus.COMPLETED;
   }
 
   /**

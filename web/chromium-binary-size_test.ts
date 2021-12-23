@@ -279,7 +279,7 @@ suite('chromium-binary-size basic tests', () => {
     );
     assert.strictEqual(
       element.getCheckRunStatus({status: 'SCHEDULED'} as BuildbucketBuild),
-      RunStatus.RUNNING,
+      'SCHEDULED',
     );
     assert.strictEqual(
       element.getCheckRunStatus({status: 'STARTED'} as BuildbucketBuild),
@@ -508,7 +508,7 @@ suite('chromium-binary-size basic tests', () => {
     stubSearch(Promise.resolve({builds: [{status: 'SCHEDULED'}]}));
     res = await element.fetchChecks(changeData);
     run = res.runs![0];
-    assert.strictEqual(run.status, RunStatus.RUNNING);
+    assert.strictEqual(run.status, 'SCHEDULED');
     assert.strictEqual(run.results!.length, 1);
     assert.strictEqual(run.results![0].category, Category.INFO);
     assert.strictEqual(
