@@ -1,8 +1,7 @@
 import './test/test-setup';
 import './chromium-binary-size';
 import {
-  ChromiumBinarySize,
-  ChromiumBinarySizeInfo,
+  ChecksFetcher,
   ChromiumBinarySizeListing,
   BuildbucketBuild,
   ChromiumBinarySizeConfig,
@@ -20,7 +19,13 @@ import {
 } from '@gerritcodereview/typescript-api/rest-api';
 
 suite('chromium-binary-size basic tests', () => {
-  let element: ChromiumBinarySize;
+  let fetcher: ChecksFetcher;
+  const config: ChromiumBinarySizeConfig = {
+    gerritHost: 'chromium-review.googlesource.com',
+    tryBucket: 'try',
+    tryBuilder: 'android-binary-size',
+    tryProject: 'chromium',
+  };
 
   function stubSearch(searchPromise: object) {
     class MockBuildbucketV2Client {
@@ -53,65 +58,33 @@ suite('chromium-binary-size basic tests', () => {
   }
 
   setup(() => {
-    element = document.createElement(
-      'chromium-binary-size'
-    ) as ChromiumBinarySize;
-    Object.assign(element, {
-      plugin: {
-        getPluginName() {
-          return 'chromium-binary-size';
-        },
-        restApi() {
-          return {
-            getLoggedIn: async () => true,
-            get: async () => {
-              return {
-                gerritHost: 'gerrit.example.com',
-                tryBucket: 'try',
-                tryBuilder: 'android-binary-size',
-                tryProject: 'chromium',
-              };
-            },
-          };
-        },
-        checks() {
-          return {
-            register: () => {
-              return {};
-            },
-            announceUpdate: () => {
-              return {};
-            },
-          };
-        },
+    const plugin = {
+      getPluginName() {
+        return 'chromium-binary-size';
       },
-      change: {
-        project: 'project-foo',
-        _number: 1,
-        revisions: {
-          deadbeef: {
-            _number: 1,
+      restApi() {
+        return {
+          getLoggedIn: async () => true,
+          get: async () => config,
+        };
+      },
+      checks() {
+        return {
+          register: () => {
+            return {};
           },
-        },
+          announceUpdate: () => {
+            return {};
+          },
+        };
       },
-      pluginConfig: {
-        gerritHost: 'gerrit.example.com',
-        tryBucket: 'try',
-        tryBuilder: 'android-binary-size',
-        tryProject: 'chromium',
-      },
-      enabled: true,
-      revision: {
-        _number: 1,
-      },
-    });
-  });
+    };
 
-  test('renders the element', () => {
-    assert.isOk(element);
+    fetcher = new ChecksFetcher(plugin as any, 'host');
   });
 
   test('getBuilds', async () => {
+    fetcher.pluginConfig = config;
     const stub = stubSearch(
       Promise.resolve({
         builds: [{id: '1'}, {id: '2'}],
@@ -119,7 +92,7 @@ suite('chromium-binary-size basic tests', () => {
     );
 
     const predicate1 = {host: 'gerrit.example.com', change: 42, patchset: 2};
-    assert.deepEqual(await element.getBuilds([predicate1]), [
+    assert.deepEqual(await fetcher.getBuilds([predicate1]), [
       {id: '1'},
       {id: '2'},
     ] as BuildbucketBuild[]);
@@ -136,17 +109,15 @@ suite('chromium-binary-size basic tests', () => {
       {},
     ];
     assert.deepEqual(
-      element.selectRelevantBuild(builds as BuildbucketBuild[]),
+      fetcher.selectRelevantBuild(builds as BuildbucketBuild[]),
       builds[0] as BuildbucketBuild
     );
   });
 
   test('tryjobPatchPredicates', () => {
-    element.pluginConfig = {
-      gerritHost: 'chromium-review.googlesource.com',
-    } as ChromiumBinarySizeConfig;
+    fetcher.pluginConfig = config;
     assert.deepEqual(
-      element.tryjobPatchPredicates({_number: 42} as ChangeInfo, [2, 3, 4]),
+      fetcher.tryjobPatchPredicates({_number: 42} as ChangeInfo, [2, 3, 4]),
       [
         {
           host: 'chromium-review.googlesource.com',
@@ -167,15 +138,6 @@ suite('chromium-binary-size basic tests', () => {
     );
   });
 
-  test('exponential backoff', async () => {
-    assert.isNotOk(element.updateTimeoutID);
-    stubSearch(Promise.reject('nope'));
-    const timeoutMs = element.updateIntervalMs;
-    await element.refresh();
-    assert.isAbove(element.updateIntervalMs, 2 * timeoutMs);
-    assert.isOk(element.updateTimeoutID);
-  });
-
   test('valid patch numbers', () => {
     let change = {
       revisions: {
@@ -184,11 +146,11 @@ suite('chromium-binary-size basic tests', () => {
         rev3: {_number: 3, kind: RevisionKind.TRIVIAL_REBASE},
       },
     } as any;
-    assert.deepEqual(element.computeValidPatchNums(change, 3), [3, 2, 1]);
-    assert.deepEqual(element.computeValidPatchNums(change, 2), [2, 1]);
+    assert.deepEqual(fetcher.computeValidPatchNums(change, 3), [3, 2, 1]);
+    assert.deepEqual(fetcher.computeValidPatchNums(change, 2), [2, 1]);
 
     change.status = ChangeStatus.MERGED;
-    assert.deepEqual(element.computeValidPatchNums(change, 3), [2, 1]);
+    assert.deepEqual(fetcher.computeValidPatchNums(change, 3), [2, 1]);
 
     change = {
       revisions: {
@@ -198,139 +160,69 @@ suite('chromium-binary-size basic tests', () => {
       },
     };
 
-    assert.deepEqual(element.computeValidPatchNums(change, 3), [3, 2]);
-  });
-
-  test('UI mutual exclusivity', async () => {
-    const uiMethods = [
-      element.shouldShowBinarySizeTable,
-      element.shouldShowNoTrybotScheduled,
-      element.shouldShowWaitingForTrybotRun,
-      element.shouldShowWaitingForTrybotToSchedule,
-    ];
-    [{loaded: true}, {loaded: false}, undefined].forEach(binarySizeInfo => {
-      [true, false].forEach((waitingForTrybotSchedule: boolean) => {
-        [true, false].forEach(waitingForTrybotResult => {
-          const result = uiMethods.map(method =>
-            method.call(
-              element,
-              binarySizeInfo as ChromiumBinarySizeInfo,
-              waitingForTrybotSchedule,
-              waitingForTrybotResult
-            )
-          );
-          // Only one function should be truthy
-          assert.equal(result.filter(val => !!val).length, 1);
-        });
-      });
-    });
-  });
-
-  test('ready registers checks only once', async () => {
-    class fakeCache {
-      constructor() {
-        return;
-      }
-
-      read() {
-        return {optedIn: true};
-      }
-    }
-
-    Object.assign((window as any).buildbucket, {
-      CacheObject: fakeCache,
-      CHECKS_OPT_CACHE_KEY: 'foo',
-    });
-
-    const stub = sinon.stub();
-    Object.assign(element, {
-      plugin: {
-        getPluginName: () => 'binary-size',
-        restApi: () => {
-          return {
-            get: () => Promise.resolve({_account_id: 123}),
-          };
-        },
-        checks: () => {
-          return {register: stub};
-        },
-        hook: () => {
-          return {onAttached: () => {}};
-        },
-      },
-    });
-
-    // Wrap in try/catch since we're only testing checks registration.
-    try {
-      element.onChange();
-    } catch (e) {}
-    sinon.assert.calledOnce(stub);
-
-    try {
-      element.onChange();
-    } catch (e) {}
-    sinon.assert.calledOnce(stub);
+    assert.deepEqual(fetcher.computeValidPatchNums(change, 3), [3, 2]);
   });
 
   test('getCheckRunStatus', () => {
     assert.strictEqual(
-      element.getCheckRunStatus({} as BuildbucketBuild),
+      fetcher.getCheckRunStatus({} as BuildbucketBuild),
       RunStatus.RUNNABLE,
     );
     assert.strictEqual(
-      element.getCheckRunStatus({status: 'SCHEDULED'} as BuildbucketBuild),
+      fetcher.getCheckRunStatus({status: 'SCHEDULED'} as BuildbucketBuild),
       'SCHEDULED',
     );
     assert.strictEqual(
-      element.getCheckRunStatus({status: 'STARTED'} as BuildbucketBuild),
+      fetcher.getCheckRunStatus({status: 'STARTED'} as BuildbucketBuild),
       RunStatus.RUNNING,
     );
     assert.strictEqual(
-      element.getCheckRunStatus({status: 'FAILURE'} as BuildbucketBuild),
+      fetcher.getCheckRunStatus({status: 'FAILURE'} as BuildbucketBuild),
       RunStatus.COMPLETED,
     );
   });
 
   test('getCheckRunStatusDesc', () => {
+    fetcher.pluginConfig = config;
     assert.strictEqual(
-      element.getCheckRunStatusDesc({} as BuildbucketBuild),
+      fetcher.getCheckRunStatusDesc({} as BuildbucketBuild),
       'Run the android-binary-size trybot'
     );
     assert.strictEqual(
-      element.getCheckRunStatusDesc({status: 'SCHEDULED'} as BuildbucketBuild),
+      fetcher.getCheckRunStatusDesc({status: 'SCHEDULED'} as BuildbucketBuild),
       'Scheduling the android-binary-size tryjob'
     );
     assert.strictEqual(
-      element.getCheckRunStatusDesc({status: 'STARTED'} as BuildbucketBuild),
+      fetcher.getCheckRunStatusDesc({status: 'STARTED'} as BuildbucketBuild),
       'Waiting for the android-binary-size trybot run to complete'
     );
     assert.strictEqual(
-      element.getCheckRunStatusDesc({status: 'FAILURE'} as BuildbucketBuild),
+      fetcher.getCheckRunStatusDesc({status: 'FAILURE'} as BuildbucketBuild),
       ''
     );
   });
 
   test('getCheckResultCategory', () => {
     assert.strictEqual(
-      element.getCheckResultCategory({status: 'SUCCESS'} as BuildbucketBuild, [
+      fetcher.getCheckResultCategory({status: 'SUCCESS'} as BuildbucketBuild, [
         {allowed: true} as ChromiumBinarySizeListing,
       ]),
       Category.INFO,
     );
     assert.strictEqual(
-      element.getCheckResultCategory({status: 'SUCCESS'} as BuildbucketBuild, [
+      fetcher.getCheckResultCategory({status: 'SUCCESS'} as BuildbucketBuild, [
         {allowed: false} as ChromiumBinarySizeListing,
       ]),
       Category.WARNING,
     );
     assert.strictEqual(
-      element.getCheckResultCategory({status: 'FAILURE'} as BuildbucketBuild, [
+      fetcher.getCheckResultCategory({status: 'FAILURE'} as BuildbucketBuild, [
         {allowed: true} as ChromiumBinarySizeListing,
       ]),
       Category.INFO,
     );
     assert.strictEqual(
-      element.getCheckResultCategory({status: 'FAILURE'} as BuildbucketBuild, [
+      fetcher.getCheckResultCategory({status: 'FAILURE'} as BuildbucketBuild, [
         {allowed: false} as ChromiumBinarySizeListing,
       ]),
       Category.ERROR,
@@ -341,26 +233,26 @@ suite('chromium-binary-size basic tests', () => {
     const stub = sinon.stub();
     stub
       .withArgs('/projects/foo/chromium-binary-size~config')
-      .returns(Promise.resolve({a: 1}));
+      .returns(Promise.resolve(config));
     stub
       .withArgs('/projects/bar/chromium-binary-size~config')
       .returns(Promise.reject());
-    element.plugin.restApi = () =>
+    fetcher.plugin.restApi = () =>
       ({
         get: stub,
       } as any);
-    assert.strictEqual(await element.isEnabled('foo'), true);
-    assert.strictEqual(await element.isEnabled('bar'), false);
+    assert.strictEqual(await fetcher.isEnabled('foo'), true);
+    assert.strictEqual(await fetcher.isEnabled('bar'), false);
     sinon.assert.calledTwice(stub);
 
     // Results should be cached.
-    assert.strictEqual(await element.isEnabled('foo'), true);
-    assert.strictEqual(await element.isEnabled('bar'), false);
+    assert.strictEqual(await fetcher.isEnabled('foo'), true);
+    assert.strictEqual(await fetcher.isEnabled('bar'), false);
     sinon.assert.calledTwice(stub);
   });
 
   test('fetchChecks formats extra CheckResult links', async () => {
-    sinon.stub(element, 'isEnabled').returns(Promise.resolve(true));
+    sinon.stub(fetcher, 'isEnabled').returns(Promise.resolve(true));
     stubSearch(
       Promise.resolve({
         builds: [
@@ -383,7 +275,7 @@ suite('chromium-binary-size basic tests', () => {
         ],
       })
     );
-    const res = await element.fetchChecks({
+    const res = await fetcher.fetchChecks({
       changeNumber: 1,
       patchsetNumber: 1,
       repo: 'repo',
@@ -415,7 +307,7 @@ suite('chromium-binary-size basic tests', () => {
   });
 
   test('fetchChecks uses the latest build with output', async () => {
-    sinon.stub(element, 'isEnabled').returns(Promise.resolve(true));
+    sinon.stub(fetcher, 'isEnabled').returns(Promise.resolve(true));
     stubSearch(
       Promise.resolve({
         builds: [
@@ -456,7 +348,7 @@ suite('chromium-binary-size basic tests', () => {
         ],
       })
     );
-    const res = await element.fetchChecks({
+    const res = await fetcher.fetchChecks({
       changeNumber: 1,
       patchsetNumber: 1,
       repo: 'repo',
@@ -477,7 +369,7 @@ suite('chromium-binary-size basic tests', () => {
   });
 
   test('fetchChecks creates CheckResults', async () => {
-    sinon.stub(element, 'isEnabled').returns(Promise.resolve(true));
+    fetcher.pluginConfig = config;
     const changeData: any = {
       changeNumber: 1,
       patchsetNumber: 1,
@@ -497,7 +389,7 @@ suite('chromium-binary-size basic tests', () => {
 
     // android-binary-size trybot has not been run.
     stubSearch(Promise.resolve({builds: []}));
-    res = await element.fetchChecks(changeData);
+    res = await fetcher.fetchChecks(changeData);
     run = res.runs![0];
     assert.strictEqual(run.status, RunStatus.RUNNABLE);
     assert.strictEqual(run.results!.length, 0);
@@ -506,7 +398,7 @@ suite('chromium-binary-size basic tests', () => {
 
     // android-binary-size trybot has been scheduled.
     stubSearch(Promise.resolve({builds: [{status: 'SCHEDULED'}]}));
-    res = await element.fetchChecks(changeData);
+    res = await fetcher.fetchChecks(changeData);
     run = res.runs![0];
     assert.strictEqual(run.status, 'SCHEDULED');
     assert.strictEqual(run.results!.length, 1);
@@ -520,7 +412,7 @@ suite('chromium-binary-size basic tests', () => {
 
     // android-binary-size trybot has started.
     stubSearch(Promise.resolve({builds: [{status: 'STARTED'}]}));
-    res = await element.fetchChecks(changeData);
+    res = await fetcher.fetchChecks(changeData);
     run = res.runs![0];
     assert.strictEqual(run.status, RunStatus.RUNNING);
     assert.strictEqual(run.results!.length, 1);
@@ -551,7 +443,7 @@ suite('chromium-binary-size basic tests', () => {
         ],
       })
     );
-    res = await element.fetchChecks(changeData);
+    res = await fetcher.fetchChecks(changeData);
     run = res.runs![0];
     assert.strictEqual(run.status, RunStatus.COMPLETED);
     assert.strictEqual(run.results!.length, 0);
@@ -579,7 +471,7 @@ suite('chromium-binary-size basic tests', () => {
         ],
       })
     );
-    res = await element.fetchChecks(changeData);
+    res = await fetcher.fetchChecks(changeData);
     run = res.runs![0];
     assert.strictEqual(run.status, RunStatus.COMPLETED);
     assert.strictEqual(run.results!.length, 1);
@@ -610,7 +502,7 @@ suite('chromium-binary-size basic tests', () => {
         ],
       })
     );
-    res = await element.fetchChecks(changeData);
+    res = await fetcher.fetchChecks(changeData);
     run = res.runs![0];
     assert.strictEqual(run.status, RunStatus.COMPLETED);
     assert.strictEqual(run.results!.length, 1);
@@ -637,7 +529,7 @@ suite('chromium-binary-size basic tests', () => {
         ],
       })
     );
-    res = await element.fetchChecks(changeData);
+    res = await fetcher.fetchChecks(changeData);
     run = res.runs![0];
     assert.strictEqual(run.status, RunStatus.COMPLETED);
     assert.strictEqual(run.results!.length, 1);
@@ -657,7 +549,7 @@ suite('chromium-binary-size basic tests', () => {
         ],
       })
     );
-    res = await element.fetchChecks(changeData);
+    res = await fetcher.fetchChecks(changeData);
     run = res.runs![0];
     assert.strictEqual(run.status, RunStatus.COMPLETED);
     assert.strictEqual(run.results!.length, 1);
@@ -710,7 +602,7 @@ suite('chromium-binary-size basic tests', () => {
         ],
       })
     );
-    let res = await element.fetchChecks(changeData);
+    let res = await fetcher.fetchChecks(changeData);
     let run = res.runs![0];
 
     assert.strictEqual(run.results!.length, 1);
@@ -743,7 +635,7 @@ suite('chromium-binary-size basic tests', () => {
         ],
       })
     );
-    res = await element.fetchChecks(changeData);
+    res = await fetcher.fetchChecks(changeData);
     run = res.runs![0];
 
     assert.strictEqual(run.results!.length, 1);

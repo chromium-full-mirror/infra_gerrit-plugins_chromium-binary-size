@@ -5,7 +5,8 @@
 The plugin queries the android-binary-size trybot for the current patchset on
 Gerrit, and gets the `binary_size_plugin` property. This property contains the
 metadata about the binary size metrics affected by the patchset in question. It
-then shows an inline table with the metric deltas + links to SuperSize output.
+then shows a table with the metric deltas + links to SuperSize output under the
+Checks tab.
 
 ## Usage
 
