@@ -411,7 +411,6 @@ export class ChromiumBinarySize extends LitElement {
 
     const runId = `//${BUILDBUCKET_HOST}/chromium-binary-size-plugin`;
     const resultId = `${runId}/result`;
-    const summary = 'Chromium Binary Size Changes';
     const category = this.getCheckResultCategory(build, listings);
     const results: CheckResult[] = [];
     // Create a CheckResult from binarySizeInfo if possible. Otherwise, create
@@ -427,31 +426,59 @@ export class ChromiumBinarySize extends LitElement {
         };
       });
 
-      results.push({
-        externalId: resultId,
-        category,
-        summary,
-        message: 'Expand to view the changes in binary size and other checks',
-        links,
-      });
-    } else if (['SCHEDULED', 'STARTED', 'CANCELED'].includes(build.status)) {
-      let message;
-      const builder = this.pluginConfig.tryBuilder;
-      if (build.status === 'CANCELED') {
-        message =
-          `Run the ${builder} trybot on the latest patchset to see ` +
-          'your binary size impact.';
-      } else if (build.status === 'SCHEDULED') {
-        message = `Scheduling the ${builder} tryjob.`;
-      } else if (build.status === 'STARTED') {
-        message = `Waiting for ${builder} trybot run to complete.`;
+      // Build summary and message based off listings.
+      //
+      //   Passing example:
+      //     Summary: Android Binary Size changed by +10 bytes. All checks passed.
+      //     Message: Expand to view more.
+      //
+      //   Failing example:
+      //     Summary: Android Binary Size changed by +18,954 bytes. 2 of 3 checks failed.
+      //     Message: Failing checks: foo, bar. Expand to view more.
+      let summary = '';
+      let message = '';
+      const unallowed = [];
+      for (const l of listings) {
+        if (l.name === 'Android Binary Size') {
+          summary = `Android Binary Size changed by ${l.delta}. `;
+        }
+        if (!l.allowed) {
+          unallowed.push(l.name);
+        }
       }
+
+      if (unallowed.length > 0) {
+        summary += `${unallowed.length} of ${listings.length} checks failed.`;
+        message += `Failing checks: ${unallowed.join(', ')}. `;
+      } else {
+        summary += 'All checks passed.';
+      }
+      message += 'Expand to view more.';
 
       results.push({
         externalId: resultId,
         category,
         summary,
         message,
+        links,
+      });
+    } else if (['SCHEDULED', 'STARTED', 'CANCELED'].includes(build.status)) {
+      let summary = '';
+      const builder = this.pluginConfig.tryBuilder;
+      if (build.status === 'CANCELED') {
+        summary =
+          `Run the ${builder} trybot on the latest patchset to see ` +
+          'your binary size impact.';
+      } else if (build.status === 'SCHEDULED') {
+        summary = `Scheduling the ${builder} tryjob.`;
+      } else if (build.status === 'STARTED') {
+        summary = `Waiting for ${builder} trybot run to complete.`;
+      }
+
+      results.push({
+        externalId: resultId,
+        category,
+        summary,
       });
     }
 

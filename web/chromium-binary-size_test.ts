@@ -512,7 +512,7 @@ suite('chromium-binary-size basic tests', () => {
     assert.strictEqual(run.results!.length, 1);
     assert.strictEqual(run.results![0].category, Category.INFO);
     assert.strictEqual(
-      run.results![0].message,
+      run.results![0].summary,
       'Scheduling the android-binary-size tryjob.'
     );
     assert.strictEqual(run.actions!.length, 0);
@@ -526,7 +526,7 @@ suite('chromium-binary-size basic tests', () => {
     assert.strictEqual(run.results!.length, 1);
     assert.strictEqual(run.results![0].category, Category.INFO);
     assert.strictEqual(
-      run.results![0].message,
+      run.results![0].summary,
       'Waiting for android-binary-size trybot run to complete.'
     );
     assert.strictEqual(run.actions!.length, 0);
@@ -663,11 +663,95 @@ suite('chromium-binary-size basic tests', () => {
     assert.strictEqual(run.results!.length, 1);
     assert.strictEqual(run.results![0].category, Category.INFO);
     assert.strictEqual(
-      run.results![0].message,
+      run.results![0].summary,
       'Run the android-binary-size trybot on the latest patchset to see ' +
         'your binary size impact.'
     );
     assert.strictEqual(run.actions![0].name, 'Run');
     assert.deepEqual((run as any)[DATA_SYMBOL].listings, []);
+  });
+
+  test('fetchChecks creates message and summary from listings', async () => {
+    const changeData: any = {
+      changeNumber: 1,
+      patchsetNumber: 1,
+      repo: 'repo',
+      changeInfo: {
+        project: 'project-foo',
+        _number: 1,
+        revisions: {
+          deadbeef: {
+            _number: 1,
+          },
+        },
+      },
+    };
+
+    // Some listings failed.
+    stubSearch(
+      Promise.resolve({
+        builds: [
+          {
+            id: '1',
+            status: 'SUCCESS',
+            endTime: '2019-05-29T23:41:18.637847Z',
+            output: {
+              properties: {
+                binary_size_plugin: {
+                  listings: [
+                    {name: 'Android Binary Size', delta: '+999 bytes', allowed: true},
+                    {name: 'foo', allowed: false},
+                    {name: 'baz', allowed: false},
+                  ],
+                },
+              },
+            },
+          },
+        ],
+      })
+    );
+    let res = await element.fetchChecks(changeData);
+    let run = res.runs![0];
+
+    assert.strictEqual(run.results!.length, 1);
+    assert.strictEqual(
+      run.results![0].summary,
+      'Android Binary Size changed by +999 bytes. 2 of 3 checks failed.');
+    assert.strictEqual(
+      run.results![0].message,
+      'Failing checks: foo, baz. Expand to view more.');
+
+    // All listings passed.
+    stubSearch(
+      Promise.resolve({
+        builds: [
+          {
+            id: '1',
+            status: 'SUCCESS',
+            endTime: '2019-05-29T23:41:18.637847Z',
+            output: {
+              properties: {
+                binary_size_plugin: {
+                  listings: [
+                    {name: 'Android Binary Size', delta: '+2 bytes', allowed: true},
+                    {name: 'foo', allowed: true},
+                  ],
+                },
+              },
+            },
+          },
+        ],
+      })
+    );
+    res = await element.fetchChecks(changeData);
+    run = res.runs![0];
+
+    assert.strictEqual(run.results!.length, 1);
+    assert.strictEqual(
+      run.results![0].summary,
+      'Android Binary Size changed by +2 bytes. All checks passed.');
+    assert.strictEqual(
+      run.results![0].message,
+      'Expand to view more.');
   });
 });
