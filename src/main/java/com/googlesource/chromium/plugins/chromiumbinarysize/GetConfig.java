@@ -4,6 +4,7 @@
 
 package com.googlesource.chromium.plugins.chromiumbinarysize;
 
+import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.extensions.annotations.PluginName;
 import com.google.gerrit.extensions.restapi.Response;
 import com.google.gerrit.extensions.restapi.RestReadView;
@@ -14,13 +15,10 @@ import com.google.gson.annotations.SerializedName;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import org.eclipse.jgit.lib.Config;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @Singleton
 class GetConfig implements RestReadView<ProjectResource> {
-
-  private static final Logger LOG = LoggerFactory.getLogger(GetConfig.class);
+  private static final FluentLogger logger = FluentLogger.forEnclosingClass();
   private static final String HOST_SECTION = "host";
   private static final String GERRIT = "gerrit";
   private static final String REPO_SECTION = "repo";
@@ -38,10 +36,10 @@ class GetConfig implements RestReadView<ProjectResource> {
 
   @Override
   public Response<ChromiumBinarySizeConfig> apply(ProjectResource project) throws NoSuchProjectException {
-    LOG.info("Getting config for {}...", project.getName());
+    logger.atInfo().log("Getting config for %s...", project.getName());
     Config cfg = config.getProjectPluginConfigWithInheritance(project.getNameKey(), pluginName);
-    LOG.info("Found sections: {}", cfg.getSections());
-    LOG.info("Found repo subsections: {}", cfg.getSubsections("repo"));
+    logger.atInfo().log("Found sections: %s", cfg.getSections());
+    logger.atInfo().log("Found repo subsections: %s", cfg.getSubsections("repo"));
     ChromiumBinarySizeConfig result = new ChromiumBinarySizeConfig();
     result.gerritHost = cfg.getString(HOST_SECTION, null, GERRIT);
     result.tryBuilder = cfg.getString(REPO_SECTION, project.getName(), BUILDER_KEY);
@@ -49,10 +47,10 @@ class GetConfig implements RestReadView<ProjectResource> {
     result.tryProject = cfg.getString(REPO_SECTION, project.getName(), PROJECT_KEY);
     // Check if config has a section for the specific repo we are requesting from.
     if (result.tryBuilder != null && result.tryBucket != null && result.tryBuilder != null) {
-      LOG.info("Found valid config");
+      logger.atInfo().log("Found valid config");
       return Response.ok(result);
     } else {
-      LOG.info("No valid config found, returning 404");
+      logger.atInfo().log("No valid config found, returning 404");
       // return 404 if no config is setup for the specific repo so plugin disables itself.
       return Response.withStatusCode(404, new ChromiumBinarySizeConfig());
     }
