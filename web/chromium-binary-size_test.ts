@@ -166,19 +166,19 @@ suite('chromium-binary-size basic tests', () => {
   test('getCheckRunStatus', () => {
     assert.strictEqual(
       fetcher.getCheckRunStatus({} as BuildbucketBuild),
-      RunStatus.RUNNABLE,
+      RunStatus.RUNNABLE
     );
     assert.strictEqual(
       fetcher.getCheckRunStatus({status: 'SCHEDULED'} as BuildbucketBuild),
-      'SCHEDULED',
+      'SCHEDULED'
     );
     assert.strictEqual(
       fetcher.getCheckRunStatus({status: 'STARTED'} as BuildbucketBuild),
-      RunStatus.RUNNING,
+      RunStatus.RUNNING
     );
     assert.strictEqual(
       fetcher.getCheckRunStatus({status: 'FAILURE'} as BuildbucketBuild),
-      RunStatus.COMPLETED,
+      RunStatus.COMPLETED
     );
   });
 
@@ -207,25 +207,25 @@ suite('chromium-binary-size basic tests', () => {
       fetcher.getCheckResultCategory({status: 'SUCCESS'} as BuildbucketBuild, [
         {allowed: true} as ChromiumBinarySizeListing,
       ]),
-      Category.INFO,
+      Category.INFO
     );
     assert.strictEqual(
       fetcher.getCheckResultCategory({status: 'SUCCESS'} as BuildbucketBuild, [
         {allowed: false} as ChromiumBinarySizeListing,
       ]),
-      Category.WARNING,
+      Category.WARNING
     );
     assert.strictEqual(
       fetcher.getCheckResultCategory({status: 'FAILURE'} as BuildbucketBuild, [
         {allowed: true} as ChromiumBinarySizeListing,
       ]),
-      Category.INFO,
+      Category.INFO
     );
     assert.strictEqual(
       fetcher.getCheckResultCategory({status: 'FAILURE'} as BuildbucketBuild, [
         {allowed: false} as ChromiumBinarySizeListing,
       ]),
-      Category.ERROR,
+      Category.ERROR
     );
   });
 
@@ -591,7 +591,11 @@ suite('chromium-binary-size basic tests', () => {
               properties: {
                 binary_size_plugin: {
                   listings: [
-                    {name: 'Android Binary Size', delta: '+999 bytes', allowed: true},
+                    {
+                      name: 'Android Binary Size',
+                      delta: '+999 bytes',
+                      allowed: true,
+                    },
                     {name: 'foo', allowed: false},
                     {name: 'baz', allowed: false},
                   ],
@@ -608,10 +612,12 @@ suite('chromium-binary-size basic tests', () => {
     assert.strictEqual(run.results!.length, 1);
     assert.strictEqual(
       run.results![0].summary,
-      'Android Binary Size changed by +999 bytes. 2 of 3 checks failed.');
+      'Android Binary Size changed by +999 bytes. 2 of 3 checks failed.'
+    );
     assert.strictEqual(
       run.results![0].message,
-      'Failing checks: foo, baz. Expand to view more.');
+      'Failing checks: foo, baz. Expand to view more.'
+    );
 
     // All listings passed.
     stubSearch(
@@ -625,7 +631,11 @@ suite('chromium-binary-size basic tests', () => {
               properties: {
                 binary_size_plugin: {
                   listings: [
-                    {name: 'Android Binary Size', delta: '+2 bytes', allowed: true},
+                    {
+                      name: 'Android Binary Size',
+                      delta: '+2 bytes',
+                      allowed: true,
+                    },
                     {name: 'foo', allowed: true},
                   ],
                 },
@@ -641,9 +651,8 @@ suite('chromium-binary-size basic tests', () => {
     assert.strictEqual(run.results!.length, 1);
     assert.strictEqual(
       run.results![0].summary,
-      'Android Binary Size changed by +2 bytes. All checks passed.');
-    assert.strictEqual(
-      run.results![0].message,
-      'Expand to view more.');
+      'Android Binary Size changed by +2 bytes. All checks passed.'
+    );
+    assert.strictEqual(run.results![0].message, 'Expand to view more.');
   });
 });

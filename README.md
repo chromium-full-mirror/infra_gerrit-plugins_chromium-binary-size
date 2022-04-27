@@ -42,25 +42,26 @@ This plugin must be placed inside the Gerrit plugins directory:
 
 ### Web Plugin Development
 
+Run the commands below in web/.
+
 For running Java unit tests execute:
 
-    bazel test --test_output=all //plugins/chromium-binary-size:chromium-binary-size_tests
+    make test_java
 
 For running TypeScript unit tests execute:
 
-    bazel test --test_output=all //plugins/chromium-binary-size/web:karma_test
+    make test
 
 For checking or fixing eslint formatter problems run:
 
-    bazel test //plugins/chromium-binary-size/web:lint_test
-    bazel run //plugins/chromium-binary-size/web:lint_bin -- --fix "$(pwd)/plugins/chromium-binary-size/web"
+    make lint_test
+    make lint_fix
 
 For testing the plugin with
 [Gerrit FE Dev Helper](https://gerrit.googlesource.com/gerrit-fe-dev-helper/)
-build the JavaScript bundle and copy it to the `plugins/chromium-binary-size` folder:
+the command below builds the JavaScript bundle and copies it to the `plugins/chromium-binary-size` folder:
 
-    bazel build //plugins/chromium-binary-size/web:chromium-binary-size
-    cp -f bazel-bin/plugins/chromium-binary-size/web/chromium-binary-size.js plugins/chromium-binary-size
+    make build
 
 and let the Dev Helper redirect from `.+/plugins/chromium-binary-size/static/chromium-binary-size.js` to
 `http://localhost:8081/plugins_/plugins/chromium-binary-size.js`.

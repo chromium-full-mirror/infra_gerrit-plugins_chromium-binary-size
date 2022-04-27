@@ -220,7 +220,7 @@ export class ChecksFetcher {
           await this.scheduleBuild(
             changeNumber,
             Object.keys(changeInfo.revisions || {}).length,
-            repo,
+            repo
           );
           return {shouldReload: true};
         },
@@ -383,7 +383,9 @@ export class ChecksFetcher {
       'startTime',
       'endTime',
       'output.properties.fields.binarySizePlugin',
-    ].map(f => `builds.*.${f}`).join(',');
+    ]
+      .map(f => `builds.*.${f}`)
+      .join(',');
 
     const searchResponses = await Promise.all(
       patchPredicates.map(patchPredicate =>
@@ -449,10 +451,11 @@ export class ChecksFetcher {
         revisions.push(change.revisions[revision]);
       }
     }
-    revisions.sort((a, b) => {
-      // Reverse sort.
-      return (b._number as number) - (a._number as number);
-    });
+    revisions.sort(
+      (a, b) =>
+        // Reverse sort.
+        (b._number as number) - (a._number as number)
+    );
     const patchNums: number[] = [];
     for (let i = 0; i < revisions.length; i++) {
       if (i === 0 && change.status === ChangeStatus.MERGED) {
@@ -475,7 +478,11 @@ export class ChecksFetcher {
     return patchNums;
   }
 
-  private async scheduleBuild(change: number, patchset: number, project: string) {
+  private async scheduleBuild(
+    change: number,
+    patchset: number,
+    project: string
+  ) {
     try {
       const bb = new (window as any).buildbucket.BuildbucketV2Client(
         this.buildbucketHost
