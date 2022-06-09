@@ -375,7 +375,8 @@ export class ChecksFetcher {
     }
 
     const bb = new (window as any).buildbucket.BuildbucketV2Client(
-      this.buildbucketHost
+      this.buildbucketHost,
+      String(patchPredicates[0].change)
     );
     const fields = [
       'id',
@@ -485,7 +486,8 @@ export class ChecksFetcher {
   ) {
     try {
       const bb = new (window as any).buildbucket.BuildbucketV2Client(
-        this.buildbucketHost
+        this.buildbucketHost,
+        String(change)
       );
 
       await bb.scheduleBuild({
