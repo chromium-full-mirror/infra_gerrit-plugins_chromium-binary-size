@@ -3,7 +3,6 @@ import './chromium-binary-size';
 import {
   ChecksFetcher,
   ChromiumBinarySizeListing,
-  BuildbucketBuild,
   ChromiumBinarySizeConfig,
 } from './chromium-binary-size';
 import {DATA_SYMBOL} from './checks-result';
@@ -17,8 +16,10 @@ import {
   ChangeStatus,
   RevisionKind,
 } from '@gerritcodereview/typescript-api/rest-api';
+import {Build, BuildbucketV2Client} from './buildbucket-client';
 
 suite('chromium-binary-size basic tests', () => {
+  let sandbox: sinon.SinonSandbox;
   let fetcher: ChecksFetcher;
   const config: ChromiumBinarySizeConfig = {
     gerritHost: 'chromium-review.googlesource.com',
@@ -28,33 +29,18 @@ suite('chromium-binary-size basic tests', () => {
   };
 
   function stubSearch(searchPromise: object) {
-    class MockBuildbucketV2Client {
-      constructor() {}
+    sandbox.restore();
+    sandbox
+      .stub(BuildbucketV2Client.prototype, 'getAuthorizationHeader')
+      .returns(
+        new Promise((resolve: any, _) =>
+          resolve({access_token: 'accessToken', expires_at: 0})
+        )
+      );
 
-      async searchBuilds() {
-        return searchPromise;
-      }
-    }
-
-    (window as any).buildbucket = {
-      getAccessToken: async () => null,
-      compareBuildIds: (a: string, b: string) => {
-        const d = b.length - a.length;
-        if (d != 0) {
-          return d;
-        }
-        if (a > b) {
-          return -1;
-        }
-        if (a < b) {
-          return 1;
-        }
-        return 0;
-      },
-      BuildbucketV2Client: MockBuildbucketV2Client,
-    };
-
-    return sinon.spy(MockBuildbucketV2Client.prototype, 'searchBuilds');
+    return sandbox
+      .stub(BuildbucketV2Client.prototype, 'searchBuilds')
+      .returns(searchPromise as any);
   }
 
   setup(() => {
@@ -81,6 +67,11 @@ suite('chromium-binary-size basic tests', () => {
     };
 
     fetcher = new ChecksFetcher(plugin as any, 'host');
+    sandbox = sinon.createSandbox();
+  });
+
+  teardown(() => {
+    sandbox.restore();
   });
 
   test('getBuilds', async () => {
@@ -95,7 +86,7 @@ suite('chromium-binary-size basic tests', () => {
     assert.deepEqual(await fetcher.getBuilds([predicate1]), [
       {id: '1'},
       {id: '2'},
-    ] as BuildbucketBuild[]);
+    ] as Build[]);
     const args: any = stub.getCall(0).args;
     assert.deepEqual(args[0].predicate.gerritChanges[0], predicate1);
     assert.deepEqual(args[0].predicate.builder.builder, 'android-binary-size');
@@ -109,8 +100,8 @@ suite('chromium-binary-size basic tests', () => {
       {},
     ];
     assert.deepEqual(
-      fetcher.selectRelevantBuild(builds as BuildbucketBuild[]),
-      builds[0] as BuildbucketBuild
+      fetcher.selectRelevantBuild(builds as unknown as Build[]),
+      builds[0] as unknown as Build
     );
   });
 
@@ -165,19 +156,19 @@ suite('chromium-binary-size basic tests', () => {
 
   test('getCheckRunStatus', () => {
     assert.strictEqual(
-      fetcher.getCheckRunStatus({} as BuildbucketBuild),
+      fetcher.getCheckRunStatus({} as Build),
       RunStatus.RUNNABLE
     );
     assert.strictEqual(
-      fetcher.getCheckRunStatus({status: 'SCHEDULED'} as BuildbucketBuild),
+      fetcher.getCheckRunStatus({status: 'SCHEDULED'} as Build),
       'SCHEDULED'
     );
     assert.strictEqual(
-      fetcher.getCheckRunStatus({status: 'STARTED'} as BuildbucketBuild),
+      fetcher.getCheckRunStatus({status: 'STARTED'} as Build),
       RunStatus.RUNNING
     );
     assert.strictEqual(
-      fetcher.getCheckRunStatus({status: 'FAILURE'} as BuildbucketBuild),
+      fetcher.getCheckRunStatus({status: 'FAILURE'} as Build),
       RunStatus.COMPLETED
     );
   });
@@ -185,44 +176,44 @@ suite('chromium-binary-size basic tests', () => {
   test('getCheckRunStatusDesc', () => {
     fetcher.pluginConfig = config;
     assert.strictEqual(
-      fetcher.getCheckRunStatusDesc({} as BuildbucketBuild),
+      fetcher.getCheckRunStatusDesc({} as Build),
       'Run the android-binary-size trybot'
     );
     assert.strictEqual(
-      fetcher.getCheckRunStatusDesc({status: 'SCHEDULED'} as BuildbucketBuild),
+      fetcher.getCheckRunStatusDesc({status: 'SCHEDULED'} as Build),
       'Scheduling the android-binary-size tryjob'
     );
     assert.strictEqual(
-      fetcher.getCheckRunStatusDesc({status: 'STARTED'} as BuildbucketBuild),
+      fetcher.getCheckRunStatusDesc({status: 'STARTED'} as Build),
       'Waiting for the android-binary-size trybot run to complete'
     );
     assert.strictEqual(
-      fetcher.getCheckRunStatusDesc({status: 'FAILURE'} as BuildbucketBuild),
+      fetcher.getCheckRunStatusDesc({status: 'FAILURE'} as Build),
       ''
     );
   });
 
   test('getCheckResultCategory', () => {
     assert.strictEqual(
-      fetcher.getCheckResultCategory({status: 'SUCCESS'} as BuildbucketBuild, [
+      fetcher.getCheckResultCategory({status: 'SUCCESS'} as Build, [
         {allowed: true} as ChromiumBinarySizeListing,
       ]),
       Category.INFO
     );
     assert.strictEqual(
-      fetcher.getCheckResultCategory({status: 'SUCCESS'} as BuildbucketBuild, [
+      fetcher.getCheckResultCategory({status: 'SUCCESS'} as Build, [
         {allowed: false} as ChromiumBinarySizeListing,
       ]),
       Category.WARNING
     );
     assert.strictEqual(
-      fetcher.getCheckResultCategory({status: 'FAILURE'} as BuildbucketBuild, [
+      fetcher.getCheckResultCategory({status: 'FAILURE'} as Build, [
         {allowed: true} as ChromiumBinarySizeListing,
       ]),
       Category.INFO
     );
     assert.strictEqual(
-      fetcher.getCheckResultCategory({status: 'FAILURE'} as BuildbucketBuild, [
+      fetcher.getCheckResultCategory({status: 'FAILURE'} as Build, [
         {allowed: false} as ChromiumBinarySizeListing,
       ]),
       Category.ERROR

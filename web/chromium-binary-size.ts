@@ -21,6 +21,12 @@ import {
   RevisionKind,
 } from '@gerritcodereview/typescript-api/rest-api';
 import {DATA_SYMBOL} from './checks-result.js';
+import {
+  Build,
+  BuildbucketV2Client,
+  ScheduleBuildRequest,
+  SearchBuildsRequest,
+} from './buildbucket-client.js';
 
 // TODO(gavinmak): Fix linter issues.
 
@@ -54,13 +60,6 @@ export declare interface ChromiumBinarySizeListing {
   css_class?: string;
 }
 
-export declare interface BuildbucketBuild {
-  id: string;
-  status: string;
-  output: object;
-  endTime: string;
-}
-
 declare interface PatchPredicate {
   host: string;
   change: number;
@@ -80,14 +79,6 @@ export class ChecksFetcher {
   constructor(public plugin: PluginApi, private buildbucketHost: string) {}
 
   async isEnabled(project: string): Promise<boolean> {
-    if (!(window as any).buildbucket) {
-      console.error(
-        'The "chromium-binary-size" plugin requires the' +
-          '"buildbucket" plugin for searching builds. Please activate both.'
-      );
-      return false;
-    }
-
     const path =
       `/projects/${encodeURIComponent(project)}/` +
       `${encodeURIComponent(this.plugin.getPluginName())}~config`;
@@ -104,6 +95,32 @@ export class ChecksFetcher {
     }
     this.pluginConfig = this.enabledCache.get(path)!;
     return Object.keys(this.pluginConfig).length > 0;
+  }
+
+  /**
+   * Compares build IDs by creation time.
+   *
+   * Build IDs are monotonically decreasing.
+   *
+   * A Buildbucket build ID is a positive int64. This is too large for
+   * JavaScript numbers; we cannot just parse them as integers, so we
+   * keep them as strings.
+   *
+   * @return Negative if `a` should go before `b`,
+   *     0 if they're equal, and positive if `a` should go after `b`.
+   */
+    compareBuildIds(a: string, b: string): number {
+    const d = b.length - a.length;
+    if (d != 0) {
+      return d;
+    }
+    if (a > b) {
+      return -1;
+    }
+    if (a < b) {
+      return 1;
+    }
+    return 0;
   }
 
   /**
@@ -125,7 +142,7 @@ export class ChecksFetcher {
     const builds =
       (await this.tryGetNewBinarySizeBuilds(changeInfo, patchsets)) || [];
     builds.sort(
-      (a, b) => -(window as any).buildbucket.compareBuildIds(a.id, b.id)
+      (a, b) => -this.compareBuildIds(a.id, b.id)
     );
     const binarySizeInfo = this.processBinarySizeBuilds(builds) || {};
     const {
@@ -255,7 +272,7 @@ export class ChecksFetcher {
   /**
    * Returns the CheckRun status based on the build.
    */
-  getCheckRunStatus(build: BuildbucketBuild): RunStatus {
+  getCheckRunStatus(build: Build): RunStatus {
     switch (build?.status) {
       case undefined:
         return RunStatus.RUNNABLE;
@@ -273,7 +290,7 @@ export class ChecksFetcher {
   /**
    * Returns the CheckRun statusDescription based on the build.
    */
-  getCheckRunStatusDesc(build: BuildbucketBuild): string {
+  getCheckRunStatusDesc(build: Build): string {
     const builder = this.pluginConfig.tryBuilder;
     if (!build?.status) {
       return `Run the ${builder} trybot`;
@@ -291,7 +308,7 @@ export class ChecksFetcher {
    * Returns the CheckResult category based on the build and listings.
    */
   getCheckResultCategory(
-    build: BuildbucketBuild,
+    build: Build,
     listings: ChromiumBinarySizeListing[]
   ): Category {
     if (listings?.every(l => l.allowed)) {
@@ -307,7 +324,7 @@ export class ChecksFetcher {
    * Post process binary size info json so as to help the template display
    * code.
    */
-  private processBinarySizeBuilds(builds: BuildbucketBuild[]) {
+  private processBinarySizeBuilds(builds: Build[]) {
     const build = this.selectRelevantBuild(builds);
     if (!build) {
       return null;
@@ -336,7 +353,7 @@ export class ChecksFetcher {
   private async tryGetNewBinarySizeBuilds(
     change: ChangeInfo,
     patchsets: number[]
-  ): Promise<BuildbucketBuild[] | null> {
+  ): Promise<Build[] | null> {
     try {
       return await this.getBuilds(
         this.tryjobPatchPredicates(change, patchsets)
@@ -367,14 +384,12 @@ export class ChecksFetcher {
   /**
    * Get builds for the |bucket| that match any of the |patchPredictates|.
    */
-  async getBuilds(
-    patchPredicates: PatchPredicate[]
-  ): Promise<BuildbucketBuild[]> {
+  async getBuilds(patchPredicates: PatchPredicate[]): Promise<Build[]> {
     if (!patchPredicates?.length) {
       return [];
     }
 
-    const bb = new (window as any).buildbucket.BuildbucketV2Client(
+    const bb = new BuildbucketV2Client(
       this.buildbucketHost,
       String(patchPredicates[0].change)
     );
@@ -400,11 +415,11 @@ export class ChecksFetcher {
             },
           },
           fields,
-        })
+        } as unknown as SearchBuildsRequest)
       )
     );
     const builds = searchResponses
-      .map(response => (response as any).builds)
+      .map(response => response.builds)
       .filter(Boolean); // filter out undefineds
 
     // Concatenate builds in all responses. Assume that the builds in the
@@ -417,7 +432,7 @@ export class ChecksFetcher {
    * Return the latest build that has finished and has the properties needed
    * to display binary size information, or null.
    */
-  selectRelevantBuild(builds: BuildbucketBuild[]) {
+  selectRelevantBuild(builds: Build[]) {
     return (
       builds.find(
         build =>
@@ -485,10 +500,7 @@ export class ChecksFetcher {
     project: string
   ) {
     try {
-      const bb = new (window as any).buildbucket.BuildbucketV2Client(
-        this.buildbucketHost,
-        String(change)
-      );
+      const bb = new BuildbucketV2Client(this.buildbucketHost, String(change));
 
       await bb.scheduleBuild({
         builder: {
@@ -504,7 +516,7 @@ export class ChecksFetcher {
             patchset,
           },
         ],
-      });
+      } as unknown as ScheduleBuildRequest);
     } catch (err) {
       console.warn('Buildbucket scheduleBuild failed', err);
     }
