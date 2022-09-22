@@ -7,12 +7,8 @@ import {ChecksFetcher} from './chromium-binary-size';
 import {installChecksResult} from './checks-result';
 import { initAuth } from './auth';
 
-const platformJsElement = document.createElement('script');
-platformJsElement.setAttribute('src', 'https://apis.google.com/js/platform.js');
-document.head.appendChild(platformJsElement);
-
 window.Gerrit.install(plugin => {
-  initAuth(plugin, platformJsElement);
+  initAuth(plugin);
 
   const fetcher = new ChecksFetcher(plugin, 'cr-buildbucket.appspot.com');
   plugin.checks().register({
