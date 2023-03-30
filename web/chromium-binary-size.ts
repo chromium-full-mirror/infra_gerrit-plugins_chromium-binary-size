@@ -480,7 +480,7 @@ export class ChecksFetcher {
         // count as a trivial change depending on the submit strategy.
         continue;
       }
-      if (revisions[i]._number > patchNum) {
+      if ((revisions[i]._number as number) > patchNum) {
         // Patches after the one we're displaying don't count.
         continue;
       }
