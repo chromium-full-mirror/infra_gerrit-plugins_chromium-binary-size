@@ -354,7 +354,7 @@ suite('chromium-binary-size basic tests', () => {
       },
     } as any);
     const run = res.runs![0];
-    assert.deepEqual((run as any)[DATA_SYMBOL].listings, [
+    assert.deepEqual((run.results![0] as any)[DATA_SYMBOL].listings, [
       {name: 'bar', allowed: true},
     ]);
   });
@@ -385,7 +385,6 @@ suite('chromium-binary-size basic tests', () => {
     assert.strictEqual(run.status, RunStatus.RUNNABLE);
     assert.strictEqual(run.results!.length, 0);
     assert.strictEqual(run.actions![0].name, 'Run');
-    assert.deepEqual((run as any)[DATA_SYMBOL].listings, []);
 
     // android-binary-size trybot has been scheduled.
     stubSearch(Promise.resolve({builds: [{status: 'SCHEDULED'}]}));
@@ -394,12 +393,12 @@ suite('chromium-binary-size basic tests', () => {
     assert.strictEqual(run.status, 'SCHEDULED');
     assert.strictEqual(run.results!.length, 1);
     assert.strictEqual(run.results![0].category, Category.INFO);
+    assert.deepEqual((run.results![0] as any)[DATA_SYMBOL].listings, []);
     assert.strictEqual(
       run.results![0].summary,
       'Scheduling the android-binary-size tryjob.'
     );
     assert.strictEqual(run.actions!.length, 0);
-    assert.deepEqual((run as any)[DATA_SYMBOL].listings, []);
 
     // android-binary-size trybot has started.
     stubSearch(Promise.resolve({builds: [{status: 'STARTED'}]}));
@@ -408,12 +407,12 @@ suite('chromium-binary-size basic tests', () => {
     assert.strictEqual(run.status, RunStatus.RUNNING);
     assert.strictEqual(run.results!.length, 1);
     assert.strictEqual(run.results![0].category, Category.INFO);
+    assert.deepEqual((run.results![0] as any)[DATA_SYMBOL].listings, []);
     assert.strictEqual(
       run.results![0].summary,
       'Waiting for android-binary-size trybot run to complete.'
     );
     assert.strictEqual(run.actions!.length, 0);
-    assert.deepEqual((run as any)[DATA_SYMBOL].listings, []);
 
     // android-binary-size trybot but did not produce useful results.
     stubSearch(
@@ -467,8 +466,8 @@ suite('chromium-binary-size basic tests', () => {
     assert.strictEqual(run.status, RunStatus.COMPLETED);
     assert.strictEqual(run.results!.length, 1);
     assert.strictEqual(run.results![0].category, Category.INFO);
+    assert.deepEqual((run.results![0] as any)[DATA_SYMBOL].listings, allowedListings);
     assert.strictEqual(run.actions!.length, 0);
-    assert.deepEqual((run as any)[DATA_SYMBOL].listings, allowedListings);
 
     // android-binary-size trybot but its checks were not successful.
     const unallowedListings = [
@@ -496,10 +495,10 @@ suite('chromium-binary-size basic tests', () => {
     res = await fetcher.fetchChecks(changeData);
     run = res.runs![0];
     assert.strictEqual(run.status, RunStatus.COMPLETED);
+    assert.deepEqual((run.results![0] as any)[DATA_SYMBOL].listings, unallowedListings);
     assert.strictEqual(run.results!.length, 1);
     assert.strictEqual(run.results![0].category, Category.WARNING);
     assert.strictEqual(run.actions!.length, 0);
-    assert.deepEqual((run as any)[DATA_SYMBOL].listings, unallowedListings);
 
     // android-binary-size trybot was unsuccessful.
     stubSearch(
@@ -524,9 +523,9 @@ suite('chromium-binary-size basic tests', () => {
     run = res.runs![0];
     assert.strictEqual(run.status, RunStatus.COMPLETED);
     assert.strictEqual(run.results!.length, 1);
+    assert.deepEqual((run.results![0] as any)[DATA_SYMBOL].listings, unallowedListings);
     assert.strictEqual(run.results![0].category, Category.ERROR);
     assert.strictEqual(run.actions!.length, 0);
-    assert.deepEqual((run as any)[DATA_SYMBOL].listings, unallowedListings);
 
     // android-binary-size trybot was canceled.
     stubSearch(
@@ -544,6 +543,7 @@ suite('chromium-binary-size basic tests', () => {
     run = res.runs![0];
     assert.strictEqual(run.status, RunStatus.COMPLETED);
     assert.strictEqual(run.results!.length, 1);
+    assert.deepEqual((run.results![0] as any)[DATA_SYMBOL].listings, []);
     assert.strictEqual(run.results![0].category, Category.INFO);
     assert.strictEqual(
       run.results![0].summary,
@@ -551,7 +551,6 @@ suite('chromium-binary-size basic tests', () => {
         'your binary size impact.'
     );
     assert.strictEqual(run.actions![0].name, 'Run');
-    assert.deepEqual((run as any)[DATA_SYMBOL].listings, []);
   });
 
   test('fetchChecks creates message and summary from listings', async () => {

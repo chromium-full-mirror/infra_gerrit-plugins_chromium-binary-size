@@ -7,9 +7,9 @@ import {ChromiumBinarySizeTable} from './chromium-binary-size-table';
 export const DATA_SYMBOL = Symbol('chromiumBinarySizeData');
 
 export async function installChecksResult(element: any) {
-  if (!element?.run) return;
+  if (!element?.result) return;
 
-  const {listings} = element.run[DATA_SYMBOL];
+  const {listings} = element.result[DATA_SYMBOL];
   if (!listings?.length) {
     return;
   }

@@ -203,7 +203,8 @@ export class ChecksFetcher {
         summary,
         message,
         links,
-      });
+        [DATA_SYMBOL]: {listings},
+      } as CheckResult);
     } else if (['SCHEDULED', 'STARTED', 'CANCELED'].includes(build.status)) {
       let summary = '';
       const builder = this.pluginConfig.tryBuilder;
@@ -221,7 +222,8 @@ export class ChecksFetcher {
         externalId: resultId,
         category,
         summary,
-      });
+        [DATA_SYMBOL]: {listings},
+      } as CheckResult);
     }
 
     const actions: Action[] = [];
@@ -263,7 +265,6 @@ export class ChecksFetcher {
           statusDescription: this.getCheckRunStatusDesc(build),
           results,
           actions,
-          [DATA_SYMBOL]: {listings},
         } as CheckRun,
       ],
     };
