@@ -466,7 +466,10 @@ suite('chromium-binary-size basic tests', () => {
     assert.strictEqual(run.status, RunStatus.COMPLETED);
     assert.strictEqual(run.results!.length, 1);
     assert.strictEqual(run.results![0].category, Category.INFO);
-    assert.deepEqual((run.results![0] as any)[DATA_SYMBOL].listings, allowedListings);
+    assert.deepEqual(
+      (run.results![0] as any)[DATA_SYMBOL].listings,
+      allowedListings
+    );
     assert.strictEqual(run.actions!.length, 0);
 
     // android-binary-size trybot but its checks were not successful.
@@ -495,7 +498,10 @@ suite('chromium-binary-size basic tests', () => {
     res = await fetcher.fetchChecks(changeData);
     run = res.runs![0];
     assert.strictEqual(run.status, RunStatus.COMPLETED);
-    assert.deepEqual((run.results![0] as any)[DATA_SYMBOL].listings, unallowedListings);
+    assert.deepEqual(
+      (run.results![0] as any)[DATA_SYMBOL].listings,
+      unallowedListings
+    );
     assert.strictEqual(run.results!.length, 1);
     assert.strictEqual(run.results![0].category, Category.WARNING);
     assert.strictEqual(run.actions!.length, 0);
@@ -523,7 +529,10 @@ suite('chromium-binary-size basic tests', () => {
     run = res.runs![0];
     assert.strictEqual(run.status, RunStatus.COMPLETED);
     assert.strictEqual(run.results!.length, 1);
-    assert.deepEqual((run.results![0] as any)[DATA_SYMBOL].listings, unallowedListings);
+    assert.deepEqual(
+      (run.results![0] as any)[DATA_SYMBOL].listings,
+      unallowedListings
+    );
     assert.strictEqual(run.results![0].category, Category.ERROR);
     assert.strictEqual(run.actions!.length, 0);
 
@@ -644,5 +653,40 @@ suite('chromium-binary-size basic tests', () => {
       'Android Binary Size changed by +2 bytes. All checks passed.'
     );
     assert.strictEqual(run.results![0].message, 'Expand to view more.');
+  });
+
+  test('getHumanReadableDelta', () => {
+    assert.strictEqual(fetcher.getHumanReadableDelta(null), '(unknown)');
+    assert.strictEqual(
+      fetcher.getHumanReadableDelta('+1023 bytes'),
+      '(+1023 B)'
+    );
+    assert.strictEqual(
+      fetcher.getHumanReadableDelta('+1024 bytes'),
+      '(+1 KiB)'
+    );
+    assert.strictEqual(
+      fetcher.getHumanReadableDelta('+102,400 bytes'),
+      '(+100 KiB)'
+    );
+    // 1024*1024 = 1048576
+    assert.strictEqual(
+      fetcher.getHumanReadableDelta('+104,857,600 bytes'),
+      '(+100 MiB)'
+    );
+    assert.strictEqual(
+      fetcher.getHumanReadableDelta('+104,857,600,000 bytes'),
+      '(+100,000 MiB)'
+    );
+    // 1024*1024*2.5 = 2621440
+    assert.strictEqual(
+      fetcher.getHumanReadableDelta('-2,621,440 bytes'),
+      '(-2.5 MiB)'
+    );
+    // 2226000/1024/1024 = 2.12287902832
+    assert.strictEqual(
+      fetcher.getHumanReadableDelta('-2,226,000 bytes'),
+      '(-2.123 MiB)'
+    );
   });
 });

@@ -109,7 +109,7 @@ export class ChecksFetcher {
    * @return Negative if `a` should go before `b`,
    *     0 if they're equal, and positive if `a` should go after `b`.
    */
-    compareBuildIds(a: string, b: string): number {
+  compareBuildIds(a: string, b: string): number {
     const d = b.length - a.length;
     if (d != 0) {
       return d;
@@ -141,9 +141,7 @@ export class ChecksFetcher {
     const patchsets = this.computeValidPatchNums(changeInfo, patchsetNumber);
     const builds =
       (await this.tryGetNewBinarySizeBuilds(changeInfo, patchsets)) || [];
-    builds.sort(
-      (a, b) => -this.compareBuildIds(a.id, b.id)
-    );
+    builds.sort((a, b) => -this.compareBuildIds(a.id, b.id));
     const binarySizeInfo = this.processBinarySizeBuilds(builds) || {};
     const {
       extras = [],
@@ -155,6 +153,7 @@ export class ChecksFetcher {
     const resultId = `${runId}/result`;
     const category = this.getCheckResultCategory(build, listings);
     const results: CheckResult[] = [];
+    let delta_summary = '(unknown)';
     // Create a CheckResult from binarySizeInfo if possible. Otherwise, create
     // one based on builder status if applicable.
     if (binarySizeInfo?.loaded && (listings.length || extras.length)) {
@@ -183,6 +182,7 @@ export class ChecksFetcher {
       for (const l of listings) {
         if (l.name === 'Android Binary Size') {
           summary = `Android Binary Size changed by ${l.delta}. `;
+          delta_summary = this.getHumanReadableDelta(l.delta);
         }
         if (!l.allowed) {
           unallowed.push(l.name);
@@ -217,6 +217,7 @@ export class ChecksFetcher {
       } else if (build.status === 'STARTED') {
         summary = `Waiting for ${builder} trybot run to complete.`;
       }
+      delta_summary = '(pending)';
 
       results.push({
         externalId: resultId,
@@ -224,6 +225,10 @@ export class ChecksFetcher {
         summary,
         [DATA_SYMBOL]: {listings},
       } as CheckResult);
+    }
+
+    if (build?.status && ['FAILED', 'INFRA_FAILED'].includes(build.status)) {
+      delta_summary = '(failed)';
     }
 
     const actions: Action[] = [];
@@ -254,7 +259,7 @@ export class ChecksFetcher {
           patchset: patchsetNumber,
           attempt: builds.length || undefined,
           externalId: runId,
-          checkName: 'Chromium Binary Size',
+          checkName: 'APK Size ' + delta_summary,
           checkDescription:
             'This run shows how your change and patchset ' +
             'affect the normalized APK size and other checks',
@@ -268,6 +273,30 @@ export class ChecksFetcher {
         } as CheckRun,
       ],
     };
+  }
+
+  /**
+   * Returns a short string with the binary size delta.
+   */
+  getHumanReadableDelta(delta_string: string | null): string {
+    if (delta_string == null) {
+      return '(unknown)';
+    } else {
+      // The delta gets sent to us as a string, we need to parse the number.
+      const delta = parseInt(
+        delta_string.replace('bytes', '').replace(/,/g, '')
+      );
+      const abs_delta = Math.abs(delta);
+      const maybePlus = delta > 0 ? '+' : '';
+      const fmtr = Intl.NumberFormat('en-US', {maximumSignificantDigits: 4});
+      if (abs_delta < 1024) {
+        return '(' + maybePlus + delta + ' B)';
+      } else if (abs_delta < 1024 * 1024) {
+        return '(' + maybePlus + fmtr.format(delta / 1024) + ' KiB)';
+      } else {
+        return '(' + maybePlus + fmtr.format(delta / (1024 * 1024)) + ' MiB)';
+      }
+    }
   }
 
   /**

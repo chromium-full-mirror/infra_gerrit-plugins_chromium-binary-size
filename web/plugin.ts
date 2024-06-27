@@ -5,7 +5,7 @@
 import '@gerritcodereview/typescript-api/gerrit';
 import {ChecksFetcher} from './chromium-binary-size';
 import {installChecksResult} from './checks-result';
-import { initAuth } from './auth';
+import {initAuth} from './auth';
 
 window.Gerrit.install(plugin => {
   initAuth(plugin);
