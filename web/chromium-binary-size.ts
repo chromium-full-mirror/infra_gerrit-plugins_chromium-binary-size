@@ -288,7 +288,7 @@ export class ChecksFetcher {
       );
       const abs_delta = Math.abs(delta);
       const maybePlus = delta > 0 ? '+' : '';
-      const fmtr = Intl.NumberFormat('en-US', {maximumSignificantDigits: 4});
+      const fmtr = Intl.NumberFormat('en-US', { maximumFractionDigits: 1});
       if (abs_delta < 1024) {
         return '(' + maybePlus + delta + ' B)';
       } else if (abs_delta < 1024 * 1024) {

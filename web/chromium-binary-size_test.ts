@@ -686,7 +686,7 @@ suite('chromium-binary-size basic tests', () => {
     // 2226000/1024/1024 = 2.12287902832
     assert.strictEqual(
       fetcher.getHumanReadableDelta('-2,226,000 bytes'),
-      '(-2.123 MiB)'
+      '(-2.1 MiB)'
     );
   });
 });
