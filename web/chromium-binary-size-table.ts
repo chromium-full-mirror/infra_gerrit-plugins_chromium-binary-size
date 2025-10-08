@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import {css, html, LitElement} from 'lit';
-import {customElement, property} from 'lit/decorators';
+import {customElement, property} from 'lit/decorators.js';
 import {ChromiumBinarySizeListing} from './chromium-binary-size';
 
 @customElement('chromium-binary-size-table')

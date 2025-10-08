@@ -5,7 +5,7 @@
 .PHONY: test
 
 test:
-	bazel test --test_output=all //plugins/chromium-binary-size/web:karma_test
+	bazel test --test_output=all //plugins/chromium-binary-size/web:web_test_runner
 
 test_java:
 	bazel test --test_output=all //plugins/chromium-binary-size:chromium-binary-size_tests

@@ -1,4 +1,5 @@
 import {assert} from '@open-wc/testing';
+import './test-setup';
 import './chromium-binary-size';
 import {
   ChecksFetcher,
