@@ -18,7 +18,7 @@ window.Gerrit = {
   styles: {
     font: css``,
     form: css``,
-    icon: css``,
+    material: css``,
     menuPage: css``,
     spinner: css``,
     subPage: css``,
