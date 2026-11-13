@@ -656,6 +656,68 @@ suite('chromium-binary-size basic tests', () => {
     assert.strictEqual(run.results![0].message, 'Expand to view more.');
   });
 
+  test('supports custom checkName and primaryMetric fallback', async () => {
+    const changeData: any = {
+      changeNumber: 1,
+      patchsetNumber: 1,
+      repo: 'cdm/src',
+      changeInfo: {
+        project: 'cdm/src',
+        _number: 1,
+        revisions: {
+          deadbeef: {
+            _number: 1,
+          },
+        },
+      },
+    };
+    stubSearch(
+      Promise.resolve({
+        builds: [
+          {
+            id: '1',
+            status: 'SUCCESS',
+            endTime: '2026-11-13T19:00:00.000000Z',
+            output: {
+              properties: {
+                binary_size_plugin: {
+                  listings: [
+                    {
+                      name: 'Linux x64 Stripped CDM (libwidevinecdm.so)',
+                      delta: '+1,024 bytes',
+                      limit: '+16,384 bytes',
+                      allowed: true,
+                    },
+                  ],
+                  extras: [],
+                },
+              },
+            },
+          },
+        ],
+      })
+    );
+    sandbox.stub(fetcher, 'isEnabled').callsFake(async () => {
+      fetcher.pluginConfig = {
+        tryBuilder: 'cdm-binary-size',
+        tryBucket: 'try',
+        tryProject: 'widevine-cdm',
+        gerritHost: 'chrome-internal-review.googlesource.com',
+        checkName: 'CDM Size',
+        primaryMetric: 'Linux x64 Stripped CDM (libwidevinecdm.so)',
+      };
+      return true;
+    });
+    const res = await fetcher.fetchChecks(changeData);
+    const run = res.runs![0];
+    assert.strictEqual(run.checkName, 'CDM Size (+1 KiB)');
+    assert.strictEqual(
+      run.results![0].summary,
+      'Linux x64 Stripped CDM (libwidevinecdm.so) changed by +1,024 bytes. ' +
+        'All checks passed.'
+    );
+  });
+
   test('getHumanReadableDelta', () => {
     assert.strictEqual(fetcher.getHumanReadableDelta(null), '(unknown)');
     assert.strictEqual(

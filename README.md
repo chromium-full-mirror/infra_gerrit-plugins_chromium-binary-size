@@ -25,6 +25,10 @@ chromium/src repo using the android-binary-size trybot:
   builder = "android-binary-size"
   bucket = "try"
   project = "chromium"
+  # Optional overrides (default to "APK Size" and "Android Binary Size",
+  # falling back to listings[0] when primaryMetric is absent):
+  # checkName = "CDM Size"
+  # primaryMetric = "Linux x64 Stripped CDM (libwidevinecdm.so)"
 ```
 
 All changes to `chromium-binary-size.config` files are instantly reflected.

@@ -25,6 +25,8 @@ class GetConfig implements RestReadView<ProjectResource> {
   private static final String BUILDER_KEY = "builder";
   private static final String BUCKET_KEY = "bucket";
   private static final String PROJECT_KEY = "project";
+  private static final String CHECK_NAME_KEY = "checkName";
+  private static final String PRIMARY_METRIC_KEY = "primaryMetric";
   private final PluginConfigFactory config;
   private final String pluginName;
 
@@ -45,6 +47,8 @@ class GetConfig implements RestReadView<ProjectResource> {
     result.tryBuilder = cfg.getString(REPO_SECTION, project.getName(), BUILDER_KEY);
     result.tryBucket = cfg.getString(REPO_SECTION, project.getName(), BUCKET_KEY);
     result.tryProject = cfg.getString(REPO_SECTION, project.getName(), PROJECT_KEY);
+    result.checkName = cfg.getString(REPO_SECTION, project.getName(), CHECK_NAME_KEY);
+    result.primaryMetric = cfg.getString(REPO_SECTION, project.getName(), PRIMARY_METRIC_KEY);
     // Check if config has a section for the specific repo we are requesting from.
     if (result.tryBuilder != null && result.tryBucket != null && result.tryBuilder != null) {
       logger.atInfo().log("Found valid config");
@@ -65,5 +69,9 @@ class GetConfig implements RestReadView<ProjectResource> {
     String tryBucket;
     @SerializedName("tryProject")
     String tryProject;
+    @SerializedName("checkName")
+    String checkName;
+    @SerializedName("primaryMetric")
+    String primaryMetric;
   }
 }

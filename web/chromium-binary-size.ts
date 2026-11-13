@@ -35,6 +35,8 @@ export declare interface ChromiumBinarySizeConfig {
   tryBucket: string;
   tryProject: string;
   gerritHost: string;
+  checkName?: string;
+  primaryMetric?: string;
 }
 
 export declare interface ChromiumBinarySizeInfo {
@@ -178,12 +180,18 @@ export class ChecksFetcher {
       //     Message: Failing checks: foo, bar. Expand to view more.
       let summary = '';
       let message = '';
+      const primaryMetric =
+        this.pluginConfig.primaryMetric || 'Android Binary Size';
+      const primary =
+        listings.find(
+          (l: ChromiumBinarySizeListing) => l.name === primaryMetric
+        ) || listings[0];
+      if (primary?.delta) {
+        summary = `${primary.name} changed by ${primary.delta}. `;
+        delta_summary = this.getHumanReadableDelta(primary.delta);
+      }
       const unallowed = [];
       for (const l of listings) {
-        if (l.name === 'Android Binary Size') {
-          summary = `Android Binary Size changed by ${l.delta}. `;
-          delta_summary = this.getHumanReadableDelta(l.delta);
-        }
         if (!l.allowed) {
           unallowed.push(l.name);
         }
@@ -259,7 +267,8 @@ export class ChecksFetcher {
           patchset: patchsetNumber,
           attempt: builds.length || undefined,
           externalId: runId,
-          checkName: 'APK Size ' + delta_summary,
+          checkName:
+            `${this.pluginConfig.checkName || 'APK Size'} ${delta_summary}`,
           checkDescription:
             'This run shows how your change and patchset ' +
             'affect the normalized APK size and other checks',
