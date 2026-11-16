@@ -76,8 +76,8 @@ public class ConfigIT extends LightweightPluginDaemonTest {
         + "  builder = \"android-binary-size\"\n"
         + "  bucket = \"try\"\n"
         + "  project = \"chromium\"\n"
-        + "  checkName = \"CDM Size\"\n"
-        + "  primaryMetric = \"Linux x64 Stripped CDM\"\n";
+        + "  checkName = \"Binary Size\"\n"
+        + "  primaryMetric = \"Linux Binary Size\"\n";
     pushConfig(config);
     RestResponse r =
         anonymousRestSession.get("/projects/" + testRepoKey + "/" + PLUGIN_NAME + "~config");
@@ -87,8 +87,8 @@ public class ConfigIT extends LightweightPluginDaemonTest {
     assertThat(responseText).contains("\"tryBucket\":\"try\"");
     assertThat(responseText).contains("\"tryProject\":\"chromium\"");
     assertThat(responseText).contains("\"gerritHost\":\"test.url\"");
-    assertThat(responseText).contains("\"checkName\":\"CDM Size\"");
-    assertThat(responseText).contains("\"primaryMetric\":\"Linux x64 Stripped CDM\"");
+    assertThat(responseText).contains("\"checkName\":\"Binary Size\"");
+    assertThat(responseText).contains("\"primaryMetric\":\"Linux Binary Size\"");
   }
 
   @Test

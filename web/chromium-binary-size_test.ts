@@ -89,6 +89,7 @@ suite('chromium-binary-size basic tests', () => {
       {id: '2'},
     ] as Build[]);
     const args: any = stub.getCall(0).args;
+    assert.isTrue(args[0].predicate.includeExperimental);
     assert.deepEqual(args[0].predicate.gerritChanges[0], predicate1);
     assert.deepEqual(args[0].predicate.builder.builder, 'android-binary-size');
   });
@@ -660,9 +661,9 @@ suite('chromium-binary-size basic tests', () => {
     const changeData: any = {
       changeNumber: 1,
       patchsetNumber: 1,
-      repo: 'cdm/src',
+      repo: 'my/repo',
       changeInfo: {
-        project: 'cdm/src',
+        project: 'my/repo',
         _number: 1,
         revisions: {
           deadbeef: {
@@ -683,7 +684,7 @@ suite('chromium-binary-size basic tests', () => {
                 binary_size_plugin: {
                   listings: [
                     {
-                      name: 'Linux x64 Stripped CDM (libwidevinecdm.so)',
+                      name: 'Linux Binary Size',
                       delta: '+1,024 bytes',
                       limit: '+16,384 bytes',
                       allowed: true,
@@ -699,22 +700,21 @@ suite('chromium-binary-size basic tests', () => {
     );
     sandbox.stub(fetcher, 'isEnabled').callsFake(async () => {
       fetcher.pluginConfig = {
-        tryBuilder: 'cdm-binary-size',
+        tryBuilder: 'linux-binary-size',
         tryBucket: 'try',
-        tryProject: 'widevine-cdm',
-        gerritHost: 'chrome-internal-review.googlesource.com',
-        checkName: 'CDM Size',
-        primaryMetric: 'Linux x64 Stripped CDM (libwidevinecdm.so)',
+        tryProject: 'example',
+        gerritHost: 'example-review.googlesource.com',
+        checkName: 'Binary Size',
+        primaryMetric: 'Linux Binary Size',
       };
       return true;
     });
     const res = await fetcher.fetchChecks(changeData);
     const run = res.runs![0];
-    assert.strictEqual(run.checkName, 'CDM Size (+1 KiB)');
+    assert.strictEqual(run.checkName, 'Binary Size (+1 KiB)');
     assert.strictEqual(
       run.results![0].summary,
-      'Linux x64 Stripped CDM (libwidevinecdm.so) changed by +1,024 bytes. ' +
-        'All checks passed.'
+      'Linux Binary Size changed by +1,024 bytes. All checks passed.'
     );
   });
 

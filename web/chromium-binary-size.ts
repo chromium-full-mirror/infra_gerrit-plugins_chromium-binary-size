@@ -446,6 +446,7 @@ export class ChecksFetcher {
       patchPredicates.map(patchPredicate =>
         bb.searchBuilds({
           predicate: {
+            includeExperimental: true,
             gerritChanges: [patchPredicate],
             builder: {
               builder: this.pluginConfig.tryBuilder,
